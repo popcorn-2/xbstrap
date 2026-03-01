@@ -1,0 +1,16 @@
+sources:
+  - name: rust
+    git: 'https://github.com/popcorn-2/rust.git'
+    depth: 7 # we need at least one upstream commit
+
+tools:
+  - name: rust
+    source: rust
+    require-tools:
+      - llvm
+    build:
+      - '@@SOURCES@@/x.py build --config @@CONFIG@@/rust/bootstrap.toml'
+      - '@@SOURCES@@/x.py dist rust-src --config @@CONFIG@@/rust/bootstrap.toml' # we need this for build-std
+    install:
+      - '@@SOURCES@@/x.py install --config @@CONFIG@@/rust/bootstrap.toml'
+      - 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C @@TOOLCHAIN@@/system'

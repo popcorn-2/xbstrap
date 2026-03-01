@@ -1,0 +1,20 @@
+sources:
+  - name: popcorn-core
+    git: 'https://github.com/popcorn-2/popcorn-2.git'
+
+packages:
+  - name: bootloader
+    source: popcorn-core
+    require-tools:
+      - rust
+    build: >
+      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
+      @@TOOLCHAIN@@/system/bin/cargo build
+      -p bootloader
+      --target @@ARCH@@-unknown-uefi
+      --target-dir .
+      --manifest-path @@SOURCES@@/Cargo.toml
+      --release
+      -Z build-std=core,alloc
+    install: >
+      install x86_64-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/boot/bootx64.efi

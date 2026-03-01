@@ -1,0 +1,40 @@
+sources:
+  - name: mlibc
+    git: 'https://github.com/popcorn-2/mlibc.git'
+
+packages:
+  - name: libc-headers
+    source: mlibc
+    configure: >
+      meson
+      setup
+      @@SOURCES@@
+      -Ddefault_library=static
+      -Dglibc_option=disabled
+      -Dbsd_option=disabled
+      -Dposix_option=enabled
+      -Dlibgcc_dependency=false
+      --prefix=/system
+      -Dheaders_only=true
+      --cross-file=@@CONFIG@@/meson/popcorn.cross-file
+    install: DESTDIR=@@SYSROOT@@ ninja install
+  
+  - name: libc
+    source: mlibc
+    require-tools:
+      - llvm
+    configure: >
+      meson
+      setup
+      @@SOURCES@@
+      -Ddefault_library=static
+      -Dglibc_option=disabled
+      -Dbsd_option=disabled
+      -Dposix_option=enabled
+      -Dlibgcc_dependency=false
+      --prefix=/system
+      -Dno_headers=true
+      -Duse_freestnd_hdrs=enabled
+      --cross-file=@@CONFIG@@/meson/popcorn.cross-file
+    build: ninja
+    install: DESTDIR=@@SYSROOT@@ ninja install

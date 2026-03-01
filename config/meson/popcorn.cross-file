@@ -1,0 +1,15 @@
+[binaries]
+c = ['@@TOOLCHAIN@@/system/bin/clang', '--target=@@TRIPLE@@', '--sysroot=@@SYSROOT@@']
+cpp = ['@@TOOLCHAIN@@/system/bin/clang++', '--target=@@TRIPLE@@', '--sysroot=@@SYSROOT@@']
+llvm-config = ['@@TOOLCHAIN@@/system/bin/llvm-config']
+ar = ['@@TOOLCHAIN@@/system/bin/llvm-ar']
+ranlib = ['@@TOOLCHAIN@@/system/bin/llvm-ranlib']
+
+[properties]
+needs_exe_wrapper = true
+
+[host_machine]
+system = 'popcorn'
+cpu_family = '@@ARCH@@'
+cpu = '@@ARCH@@'
+endian = 'little'

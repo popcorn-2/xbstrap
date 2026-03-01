@@ -1,0 +1,36 @@
+sources:
+  - name: llvm
+    git: 'https://github.com/popcorn-2/llvm-project.git'
+
+tools:
+  - name: llvm
+    source: llvm
+    depends:
+      - libc-headers
+    configure: >
+      cmake
+      -G Ninja
+      -B .
+      -C @@CONFIG@@/cmake/popcorn-host.cmake
+      @@SOURCES@@/llvm
+    build:
+      - ninja
+    install:
+      - DESTDIR=@@TOOLCHAIN@@ ninja install-distribution-stripped
+      - DESTDIR=@@TOOLCHAIN@@ ninja install-builtins-stripped
+      - DESTDIR=@@SYSROOT@@ ninja install-runtimes-stripped
+  
+# packages:
+#   - name: llvm
+#     source: llvm
+#     require-tools:
+#       - llvm
+#     configure: >
+#       cmake
+#       -G Ninja
+#       -B .
+#       -C @@CONFIG@@/cmake/popcorn-cross.cmake
+#       -DCMAKE_TOOLCHAIN_FILE=@@CONFIG@@/cmake/popcorn-toolchain.cmake
+#       @@SOURCES@@/llvm
+#     build:
+#       - ninja

@@ -1,0 +1,18 @@
+sources:
+  - name: popcorn-file-server
+    git: 'https://github.com/popcorn-2/file-server.git'
+
+packages:
+  - name: file-server
+    source: popcorn-file-server
+    require-tools:
+      - rust
+    build: >
+      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
+      @@TOOLCHAIN@@/system/bin/cargo build
+      --target @@ARCH@@-unknown-popcorn
+      --target-dir .
+      --manifest-path @@SOURCES@@/Cargo.toml
+      --release
+    install: >
+      install x86_64-unknown-popcorn/release/file-server.exec @@SYSROOT@@/system/bin/file-server.exec

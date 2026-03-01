@@ -1,0 +1,43 @@
+profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
+change-id = 147888
+
+[llvm]
+download-ci-llvm = true
+
+[rust]
+channel = "nightly"
+codegen-tests = false
+lld = true
+
+[build]
+host = [
+        # "x86_64-unknown-popcorn",
+        "x86_64-apple-darwin"
+]
+target = ["x86_64-unknown-popcorn", "x86_64-apple-darwin"] # we don't bother building the uefi target since it's only used by one crate and we can use build-std instead
+description = "Popcorn2"
+docs = false
+compiler-docs = false
+extended = true
+tools = [
+        "cargo",
+        "rustdoc",
+        #"miri",
+        #"cargo-miri"
+]
+
+[dist]
+compression-formats = ["gz"]
+
+[install]
+prefix = "@@TOOLCHAIN@@/system/"
+sysconfdir = "@@TOOLCHAIN@@/system/etc"
+
+[target.x86_64-unknown-popcorn]
+cc = "@@TOOLCHAIN@@/system/bin/clang"
+cxx = "@@TOOLCHAIN@@/system/bin/clang++"
+ar = "@@TOOLCHAIN@@/system/bin/llvm-ar"
+ranlib = "@@TOOLCHAIN@@/system/bin/llvm-ranlib"
+linker =  "@@TOOLCHAIN@@/system/bin/clang"
+llvm-config = "@@TOOLCHAIN@@/system/bin/llvm-config"
+crt-static = true
