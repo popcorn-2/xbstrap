@@ -1,7 +1,7 @@
 sources:
   - name: rust
     git: 'https://github.com/popcorn-2/rust.git'
-    depth: 7 # we need at least one upstream commit
+    depth: 50 # we need at least one upstream commit
 
 tools:
   - name: rust
