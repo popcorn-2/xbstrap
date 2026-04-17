@@ -43,6 +43,13 @@ def parse_arch(triple: str) -> str:
     return triple.split("-", 1)[0]
 
 
+def alt_arch(arch: str) -> str:
+    if arch == "x86_64":
+        return "amd64"
+    else:
+        return arch
+
+
 def compute_node_signature(node, *, source_dir, triple, dep_stamps):
     h = hashlib.sha256()
 
@@ -254,6 +261,7 @@ def main():
         "ARCH": arch,
         "TRIPLE": triple,
         "CONFIG": config_dir,
+        "ARCH_ALT": alt_arch(arch),
     }
 
     # ---- patch config files ----

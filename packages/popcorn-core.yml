@@ -17,4 +17,37 @@ packages:
       --release
       -Z build-std=core,alloc
     install: >
-      install x86_64-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/boot/bootx64.efi
+      install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/boot/bootx64.efi
+  - name: kernel
+    source: popcorn-core
+    require-tools:
+      - rust
+      - llvm
+    build: >
+      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
+      @@TOOLCHAIN@@/system/bin/cargo build
+      -p kernel
+      --target @@TRIPLE@@
+      --target-dir .
+      --manifest-path @@SOURCES@@/Cargo.toml
+      --release
+
+      -C linker=@@TOOLCHAIN@@/system/bin/clang
+      -C link-args=--target=@@TRIPLE@@
+      -C link-args=--sysroot=@@SYSROOT@@
+
+      -C link-args=-nostartfiles
+      -C link-args=-Wl,-no-pie
+      -C link-args=-Wl,-T@@SOURCES@@/kernel/src/hal/arch/@@ARCH_ALT@@/linker.ld
+      
+      -C code-model=kernel
+      -C relocation-model=static
+      -C panic=unwind
+      -C no-redzone=yes
+      -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2
+
+      -Z build-std=compiler_builtins,core,alloc
+      -Z build-std-features=compiler-builtins-mem
+      -Z tls-model=local-exec
+    install: >
+      install @@TRIPLE@@/release/kernel.exec @@SYSROOT@@/efi/boot/kernel.exec

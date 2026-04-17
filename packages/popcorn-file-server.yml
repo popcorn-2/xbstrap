@@ -7,12 +7,21 @@ packages:
     source: popcorn-file-server
     require-tools:
       - rust
+      - llvm
     build: >
       env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
       @@TOOLCHAIN@@/system/bin/cargo build
-      --target @@ARCH@@-unknown-popcorn
+      --target @@TRIPLE@@
       --target-dir .
       --manifest-path @@SOURCES@@/Cargo.toml
       --release
+
+      -C linker=@@TOOLCHAIN@@/system/bin/clang
+      -C link-arg=--target=@@TRIPLE@@
+      -C link-arg=--sysroot=@@SYSROOT@@
+      
+      -C panic=abort
+      -C target-feature=+crt-static
+    # -C target-cpu=native
     install: >
-      install x86_64-unknown-popcorn/release/file-server.exec @@SYSROOT@@/system/bin/file-server.exec
+      install @@TRIPLE@@/release/file-server.exec @@SYSROOT@@/system/bin/file-server.exec
