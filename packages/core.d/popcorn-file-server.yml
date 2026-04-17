@@ -15,11 +15,9 @@ packages:
       --target-dir .
       --manifest-path @@SOURCES@@/Cargo.toml
       --release
-
       -C linker=@@TOOLCHAIN@@/system/bin/clang
       -C link-arg=--target=@@TRIPLE@@
       -C link-arg=--sysroot=@@SYSROOT@@
-      
       -C panic=abort
       -C target-feature=+crt-static
     # -C target-cpu=native
