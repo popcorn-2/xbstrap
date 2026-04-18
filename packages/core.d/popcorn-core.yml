@@ -17,8 +17,9 @@ packages:
       --release
       -Z build-std=core,alloc
     install:
-      - mkdir -p @@SYSROOT@@/efi/boot/
-      - install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/boot/bootx64.efi
+      - mkdir -p @@SYSROOT@@/efi/EFI/boot/
+      - install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/EFI/boot/bootx64.efi
+      
   - name: kernel
     source: popcorn-core
     require-tools:
