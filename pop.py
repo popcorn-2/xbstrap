@@ -227,7 +227,7 @@ def main():
         dst = sources_dir / name
 
         if not dst.exists():
-            clone_cmd = ["git", "clone", f"--depth={depth}", repo, str(dst)]
+            clone_cmd = ["git", "clone", f"--depth={depth}", "--recurse-submodules", repo, str(dst)]
             run(" ".join(clone_cmd))
         else:
             # sanity check: is it a git repo?
@@ -246,7 +246,7 @@ def main():
             run(f"git checkout {ref}", cwd=dst)
         else:
             # Fast-forward to latest on current branch
-            run("git pull --ff-only", cwd=dst)
+            run("git pull --ff-only --recurse-submodules", cwd=dst)
 
         sources[name] = dst
 
