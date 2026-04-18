@@ -19,7 +19,7 @@ packages:
     install:
       - mkdir -p @@SYSROOT@@/efi/EFI/boot/
       - install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/EFI/boot/bootx64.efi
-      
+
   - name: kernel
     source: popcorn-core
     require-tools:
@@ -27,12 +27,13 @@ packages:
       - llvm
     build: >
       env RUSTC=@@TOOLCHAIN@@/system/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
-      @@TOOLCHAIN@@/system/bin/cargo build
+      @@TOOLCHAIN@@/system/bin/cargo rustc
       -p kernel
       --target @@TRIPLE@@
       --target-dir .
       --manifest-path @@SOURCES@@/Cargo.toml
       --release
+      --
       -C linker=@@TOOLCHAIN@@/system/bin/clang
       -C link-args=--target=@@TRIPLE@@
       -C link-args=--sysroot=@@SYSROOT@@
