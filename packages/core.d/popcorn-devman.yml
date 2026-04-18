@@ -28,10 +28,12 @@ packages:
   - name: devman-update-registry
     source: popcorn-devman
     install:
-      - install @@SOURCES@@/update-driver-registry @TOOLCHAIN@@/system/bin/update-driver-registry
+      - mkdir -p @SYSROOT@@/system/bin/
+      - install @@SOURCES@@/update-driver-registry @SYSROOT@@/system/bin/update-driver-registry
 
 tools:
   - name: devman-update-registry
     source: popcorn-devman
     install:
+      - mkdir -p @TOOLCHAIN@@/system/bin/
       - install @@SOURCES@@/update-driver-registry @TOOLCHAIN@@/system/bin/update-driver-registry
