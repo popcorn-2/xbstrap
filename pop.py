@@ -291,9 +291,11 @@ def main():
         node["_deps"].extend(["package-" + i for i in node.get("depends", [])])
         node["_deps"].extend(["tool-" + i for i in node.get("require-tools", [])])
 
-        print(node["name"], node["_deps"])
-
     order = topo_sort(nodes)
+
+    print()
+    for node in order:
+        print(f"`{node}` from `{nodes[node]["source"]}` (requires {", ".join(nodes[node]["_deps"])})")
 
     # ---- build loop ----
     built_stamps = {}
