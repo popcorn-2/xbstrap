@@ -24,7 +24,6 @@ packages:
     require-tools:
       - rust
       - llvm
-      - pipc
     build: >
       env RUSTC=@@TOOLCHAIN@@/system/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
       @@TOOLCHAIN@@/system/bin/cargo build

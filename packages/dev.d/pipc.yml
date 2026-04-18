@@ -1,10 +1,6 @@
-sources:
-  - name: popcorn-file-server
-    git: 'https://github.com/popcorn-2/file-server.git'
-
 packages:
-  - name: file-server
-    source: popcorn-file-server
+  - name: pipc
+    source: popcorn-pipc
     require-tools:
       - rust
       - llvm
@@ -22,5 +18,5 @@ packages:
       -C target-feature=+crt-static
     # -C target-cpu=native
     install:
-      - mkdir -p @@SYSROOT@@/system/bin/
-      - install @@TRIPLE@@/release/file-server.exec @@SYSROOT@@/system/bin/file-server.exec
+      - mkdir -p @@SYSROOT@@/pkg/pipc/bin/
+      - install @@TRIPLE@@/release/pipc.exec @@SYSROOT@@/pkg/pipc/bin/pipc.exec

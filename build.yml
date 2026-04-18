@@ -1,3 +1,5 @@
 imports:
   - packages/core.yml
+  - packages/dev.yml
   - packages/drivers.yml
+  - packages/extras.yml

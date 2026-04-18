@@ -1,0 +1,14 @@
+packages:
+  - name: llvm
+    source: llvm
+    require-tools:
+      - llvm
+    configure: >
+      cmake
+      -G Ninja
+      -B .
+      -C @@CONFIG@@/cmake/popcorn-cross.cmake
+      -DCMAKE_TOOLCHAIN_FILE=@@CONFIG@@/cmake/popcorn-toolchain.cmake
+      @@SOURCES@@/llvm
+    build:
+      - ninja

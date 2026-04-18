@@ -1,0 +1,5 @@
+imports:
+  - drivers.d/acpi.yml
+# - drivers.d/ahci.yml
+  - drivers.d/i8042.yml
+  - drivers.d/pci.yml

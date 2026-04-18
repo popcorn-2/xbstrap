@@ -1,13 +1,14 @@
 sources:
-  - name: popcorn-file-server
-    git: 'https://github.com/popcorn-2/file-server.git'
+  - name: i8042
+    git: 'https://github.com/popcorn-2/i8042.git'
 
 packages:
-  - name: file-server
-    source: popcorn-file-server
+  - name: i8042
+    source: i8042
     require-tools:
       - rust
       - llvm
+      - devman-update-registry
     build: >
       env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
       @@TOOLCHAIN@@/system/bin/cargo build
@@ -22,5 +23,6 @@ packages:
       -C target-feature=+crt-static
     # -C target-cpu=native
     install:
-      - mkdir -p @@SYSROOT@@/system/bin/
-      - install @@TRIPLE@@/release/file-server.exec @@SYSROOT@@/system/bin/file-server.exec
+      - mkdir -p @@SYSROOT@@/system/bin/driver/
+      - install @@TRIPLE@@/release/i8042.exec @@SYSROOT@@/system/bin/driver/i8042.exec
+      - '@@TOOLCHAIN@@/system/bin/update-driver-registry @@SYSROOT@@'

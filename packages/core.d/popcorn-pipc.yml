@@ -5,7 +5,7 @@ sources:
 tools:
   - name: pipc
     source: popcorn-pipc
-    depends:
+    require-tools:
       - rust
     build: >
       env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
