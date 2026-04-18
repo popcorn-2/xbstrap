@@ -1,0 +1,16 @@
+sources:
+  - name: popcorn-pipc
+    git: 'https://github.com/popcorn-2/pipc.git'
+
+tools:
+  - name: pipc
+    source: popcorn-pipc
+    depends:
+      - rust
+    build: >
+      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
+      @@TOOLCHAIN@@/system/bin/cargo build
+      --target-dir .
+      --manifest-path @@SOURCES@@/Cargo.toml
+    install: >
+      install debug/pipc @@TOOLCHAIN@@/system/bin/pipc || install debug/pipc.exe @@TOOLCHAIN@@/system/bin/pipc.exe
