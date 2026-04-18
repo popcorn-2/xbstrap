@@ -323,7 +323,7 @@ def main():
         if old_sig == new_sig:
             print(f"✓ {name} unchanged — skipping")
             built_stamps[name] = old_sig
-            phases = ("install")
+            phases = ("install",)
         else:
             print(f"↻ rebuilding {name}")
             phases = ("configure", "build", "install")
