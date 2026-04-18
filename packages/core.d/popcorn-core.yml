@@ -33,6 +33,8 @@ packages:
       --target-dir .
       --manifest-path @@SOURCES@@/Cargo.toml
       --release
+      -Z build-std=compiler_builtins,core,alloc
+      -Z build-std-features=compiler-builtins-mem
       --
       -C linker=@@TOOLCHAIN@@/system/bin/clang
       -C link-args=--target=@@TRIPLE@@
@@ -45,8 +47,6 @@ packages:
       -C panic=unwind
       -C no-redzone=yes
       -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2
-      -Z build-std=compiler_builtins,core,alloc
-      -Z build-std-features=compiler-builtins-mem
       -Z tls-model=local-exec
     install:
       - mkdir -p @@SYSROOT@@/efi/boot/
