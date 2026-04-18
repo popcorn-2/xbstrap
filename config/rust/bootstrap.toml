@@ -22,6 +22,8 @@ extended = true
 tools = [
         "cargo",
         "rustdoc",
+        "clippy",
+        "rustfmt",
         #"miri",
         #"cargo-miri"
 ]
