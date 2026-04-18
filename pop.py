@@ -323,11 +323,12 @@ def main():
         if old_sig == new_sig:
             print(f"✓ {name} unchanged — skipping")
             built_stamps[name] = old_sig
-            continue
+            phases = ("install")
+        else:
+            print(f"↻ rebuilding {name}")
+            phases = ("configure", "build", "install")
 
-        print(f"↻ rebuilding {name}")
-
-        for phase in ("configure", "build", "install"):
+        for phase in phases:
             if phase in node:
                 if phase == "configure" and already_configured(build_dir):
                     print(f"↪ configure already done for {name}, skipping")
