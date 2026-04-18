@@ -192,6 +192,7 @@ def main():
     ap.add_argument("--source-dir", required=True,
                     help="Source tree containing build.yml")
     ap.add_argument("--triple", required=True)
+    ap.add_argument("--reinstall", action="store_true")
     args = ap.parse_args()
 
     source_root = Path(args.source_dir).resolve()
@@ -323,7 +324,10 @@ def main():
         if old_sig == new_sig:
             print(f"✓ {name} unchanged — skipping")
             built_stamps[name] = old_sig
-            phases = ("install",)
+            if args.reinstall:
+                phases = ("install",)
+            else:
+                continue
         else:
             print(f"↻ rebuilding {name}")
             phases = ("configure", "build", "install")
