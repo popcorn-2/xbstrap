@@ -16,8 +16,9 @@ packages:
       --manifest-path @@SOURCES@@/Cargo.toml
       --release
       -Z build-std=core,alloc
-    install: >
-      install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/boot/bootx64.efi
+    install:
+      - mkdir -p @@SYSROOT@@/efi/boot/
+      - install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/boot/bootx64.efi
   - name: kernel
     source: popcorn-core
     require-tools:
@@ -45,5 +46,6 @@ packages:
       -Z build-std=compiler_builtins,core,alloc
       -Z build-std-features=compiler-builtins-mem
       -Z tls-model=local-exec
-    install: >
-      install @@TRIPLE@@/release/kernel.exec @@SYSROOT@@/efi/boot/kernel.exec
+    install:
+      - mkdir -p @@SYSROOT@@/efi/boot/
+      - install @@TRIPLE@@/release/kernel.exec @@SYSROOT@@/efi/boot/kernel.exec
