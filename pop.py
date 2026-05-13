@@ -337,8 +337,6 @@ def main():
     for name in order:
         node = nodes[name]
         is_system = node.get("type") == "system"
-        if is_system is not None and node['_kind'].upper() != "PACKAGE":
-            print(f"WARNING: `type` is ignored for tool {name.split("-", 1)[1]}")
 
         if is_system:
             print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} (system) ===")
@@ -346,11 +344,8 @@ def main():
             print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} ===")
 
         install_dir = sysroot / "system" if is_system else sysroot / "pkg" / name.split("-", 1)[1]
-        if node['_kind'].upper() == "PACKAGE":
-            print(f"(installing at `{install_dir}`)")
-            metavars["INSTALL_DIR"] = install_dir
-        else:
-            metavars["INSTALL_DIR"] = None
+        print(f"(installing at `{install_dir}`)")
+        metavars["INSTALL_DIR"] = install_dir
 
         src = sources[node["source"]]
         build_dir = build_root / f"build-{name}"
