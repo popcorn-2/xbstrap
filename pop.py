@@ -256,7 +256,7 @@ def main():
                 clone_cmd += ["--recurse-submodules"]
             clone_cmd += [repo, str(dst)]
             run(" ".join(clone_cmd))
-        elif not args.skip_update:
+        else:
             # sanity check: is it a git repo?
             if not (dst / ".git").exists():
                 sys.exit(f"{dst} exists but is not a git repository")
@@ -266,19 +266,20 @@ def main():
             fetch_cmd = ["git", "fetch", "--all"]
             if depth:
                 fetch_cmd += [f"--depth={depth}"]
-            run(" ".join(fetch_cmd), cwd=dst)
-        else:
-            continue
+
+            if not args.skip_update:
+                run(" ".join(fetch_cmd), cwd=dst)
 
         # Checkout ref if specified
-        if ref:
-            run(f"git checkout {ref}", cwd=dst)
-        else:
-            # Fast-forward to latest on current branch
-            if recursive:
-                run("git pull --ff-only --recurse-submodules", cwd=dst)
+        if not args.skip_update:
+            if ref:
+                run(f"git checkout {ref}", cwd=dst)
             else:
-                run("git pull --ff-only", cwd=dst)
+                # Fast-forward to latest on current branch
+                if recursive:
+                    run("git pull --ff-only --recurse-submodules", cwd=dst)
+                else:
+                    run("git pull --ff-only", cwd=dst)
 
         sources[name] = dst
 
@@ -345,13 +346,13 @@ def main():
 
         install_dir = sysroot / "system" if is_system else sysroot / "pkg" / name.split("-", 1)[1]
         print(f"(installing at `{install_dir}`)")
-        metavars["INSTALL_DIR"] = install_dir
 
         src = sources[node["source"]]
         build_dir = build_root / f"build-{name}"
         build_dir.mkdir(parents=True, exist_ok=True)
 
         metavars["SOURCES"] = src
+        metavars["INSTALL_DIR"] = install_dir
 
         dep_stamps = [built_stamps[d] for d in node["_deps"]]
         new_sig = compute_node_signature(
