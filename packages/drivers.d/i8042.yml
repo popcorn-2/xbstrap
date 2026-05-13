@@ -5,7 +5,6 @@ sources:
 packages:
   - name: i8042
     source: i8042
-    type: system
     require-tools:
       - rust
       - llvm

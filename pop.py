@@ -337,14 +337,10 @@ def main():
 
     for name in order:
         node = nodes[name]
-        is_system = node.get("type") == "system"
 
-        if is_system:
-            print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} (system) ===")
-        else:
-            print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} ===")
+        print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} ===")
 
-        install_dir = sysroot / "system" if is_system else sysroot / "pkg" / name.split("-", 1)[1]
+        install_dir = sysroot / "pkg" / name.split("-", 1)[1]
         print(f"(installing at `{install_dir}`)")
 
         src = sources[node["source"]]

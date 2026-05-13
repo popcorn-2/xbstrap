@@ -2,7 +2,7 @@ set(LLVM_ENABLE_PROJECTS "clang;clang-tools-extra;lld" CACHE STRING "")
 set(LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "")
 set(BUILD_SHARED_LIBS OFF CACHE STRING "")
 
-set(CMAKE_INSTALL_PREFIX "" CACHE STRING "")
+set(CMAKE_INSTALL_PREFIX "/system" CACHE STRING "")
 
 set(CLANG_DEFAULT_CXX_STDLIB libc++ CACHE STRING "")
 set(CLANG_DEFAULT_LINKER lld CACHE STRING "")

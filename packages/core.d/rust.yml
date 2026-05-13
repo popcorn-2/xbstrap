@@ -14,4 +14,4 @@ tools:
       - '@@SOURCES@@/x.py dist rust-src --config @@CONFIG@@/rust/bootstrap.toml' # we need this for build-std
     install:
       - '@@SOURCES@@/x.py install --config @@CONFIG@@/rust/bootstrap.toml'
-      - 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C @@TOOLCHAIN@@/'
+      - 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C @@TOOLCHAIN@@/system/'

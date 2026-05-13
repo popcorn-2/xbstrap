@@ -5,7 +5,6 @@ sources:
 packages:
   - name: bootloader
     source: popcorn-core
-    type: system
     require-tools:
       - rust
     build: >
@@ -23,7 +22,6 @@ packages:
 
   - name: kernel
     source: popcorn-core
-    type: system
     require-tools:
       - rust
       - llvm

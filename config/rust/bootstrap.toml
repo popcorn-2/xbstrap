@@ -29,14 +29,14 @@ tools = [
 compression-formats = ["gz"]
 
 [install]
-prefix = "@@TOOLCHAIN@@/"
-sysconfdir = "@@TOOLCHAIN@@/etc"
+prefix = "@@TOOLCHAIN@@/system/"
+sysconfdir = "@@TOOLCHAIN@@/system/etc"
 
 [target.x86_64-unknown-popcorn]
-cc = "@@TOOLCHAIN@@/bin/clang"
-cxx = "@@TOOLCHAIN@@/bin/clang++"
-ar = "@@TOOLCHAIN@@/bin/llvm-ar"
-ranlib = "@@TOOLCHAIN@@/bin/llvm-ranlib"
-linker =  "@@TOOLCHAIN@@/bin/clang"
-llvm-config = "@@TOOLCHAIN@@/bin/llvm-config"
+cc = "@@TOOLCHAIN@@/system/bin/clang"
+cxx = "@@TOOLCHAIN@@/system/bin/clang++"
+ar = "@@TOOLCHAIN@@/system/bin/llvm-ar"
+ranlib = "@@TOOLCHAIN@@/system/bin/llvm-ranlib"
+linker =  "@@TOOLCHAIN@@/system/bin/clang"
+llvm-config = "@@TOOLCHAIN@@/system/bin/llvm-config"
 crt-static = true

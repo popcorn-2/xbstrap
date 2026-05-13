@@ -5,7 +5,6 @@ sources:
 tools:
   - name: llvm
     source: llvm
-    type: system
     depends:
       - libc-headers
     configure: >
@@ -19,4 +18,4 @@ tools:
     install:
       - DESTDIR=@@TOOLCHAIN@@ ninja install-distribution-stripped
       - DESTDIR=@@TOOLCHAIN@@ ninja install-builtins-stripped
-      - DESTDIR=@@INSTALL_DIR@@ ninja install-runtimes-stripped
+      - DESTDIR=@@SYSROOT@@ ninja install-runtimes-stripped
