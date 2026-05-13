@@ -254,9 +254,9 @@ def main():
             clone_cmd = ["git", "clone", f"--depth={depth}"]
             if recursive:
                 clone_cmd += ["--recurse-submodules"]
-            clone_cmd += ["--recurse-submodules", repo, str(dst)]
+            clone_cmd += [repo, str(dst)]
             run(" ".join(clone_cmd))
-        elif args.skip_update:
+        elif not args.skip_update:
             # sanity check: is it a git repo?
             if not (dst / ".git").exists():
                 sys.exit(f"{dst} exists but is not a git repository")
