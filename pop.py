@@ -267,6 +267,8 @@ def main():
             if depth:
                 fetch_cmd += [f"--depth={depth}"]
             run(" ".join(fetch_cmd), cwd=dst)
+        else:
+            continue
 
         # Checkout ref if specified
         if ref:
