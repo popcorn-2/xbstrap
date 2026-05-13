@@ -2,6 +2,7 @@ sources:
   - name: rust
     git: 'https://github.com/popcorn-2/rust.git'
     depth: 50 # we need at least one upstream commit
+    recursive: false
 
 tools:
   - name: rust
