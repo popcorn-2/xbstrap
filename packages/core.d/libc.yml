@@ -5,6 +5,7 @@ sources:
 packages:
   - name: libc-headers
     source: mlibc
+    type: system
     configure: >
       meson
       setup
@@ -14,10 +15,10 @@ packages:
       -Dbsd_option=disabled
       -Dposix_option=enabled
       -Dlibgcc_dependency=false
-      --prefix=/system
+      --prefix=/
       -Dheaders_only=true
       --cross-file=@@CONFIG@@/meson/popcorn.cross-file
-    install: DESTDIR=@@SYSROOT@@ ninja install
+    install: DESTDIR=@@INSTALL_DIR@@ ninja install
   
   - name: libc
     source: mlibc
@@ -32,9 +33,9 @@ packages:
       -Dbsd_option=disabled
       -Dposix_option=enabled
       -Dlibgcc_dependency=false
-      --prefix=/system
+      --prefix=/
       -Dno_headers=true
       -Duse_freestnd_hdrs=enabled
       --cross-file=@@CONFIG@@/meson/popcorn.cross-file
     build: ninja
-    install: DESTDIR=@@SYSROOT@@ ninja install
+    install: DESTDIR=@@INSTALL_DIR@@ ninja install

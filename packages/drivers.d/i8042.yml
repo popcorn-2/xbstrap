@@ -5,25 +5,26 @@ sources:
 packages:
   - name: i8042
     source: i8042
+    type: system
     require-tools:
       - rust
       - llvm
       - devman-update-registry
     build: >
-      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
-      @@TOOLCHAIN@@/system/bin/cargo rustc
+      env RUSTC=@@TOOLCHAIN@@/bin/rustc
+      @@TOOLCHAIN@@/bin/cargo rustc
       --target @@TRIPLE@@
       --target-dir .
       --manifest-path @@SOURCES@@/Cargo.toml
       --release
       --
-      -C linker=@@TOOLCHAIN@@/system/bin/clang
+      -C linker=@@TOOLCHAIN@@/bin/clang
       -C link-arg=--target=@@TRIPLE@@
       -C link-arg=--sysroot=@@SYSROOT@@
       -C panic=abort
       -C target-feature=+crt-static
     # -C target-cpu=native
     install:
-      - mkdir -p @@SYSROOT@@/system/bin/driver/
-      - install @@TRIPLE@@/release/i8042.exec @@SYSROOT@@/system/bin/driver/i8042.exec
+      - mkdir -p @@INSTALL_DIR@@/driver/
+      - install @@TRIPLE@@/release/i8042.exec @@INSTALL_DIR@@/driver/i8042.exec
       - '@@TOOLCHAIN@@/system/bin/update-driver-registry @@SYSROOT@@'

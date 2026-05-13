@@ -326,13 +326,22 @@ def main():
 
     for name in order:
         node = nodes[name]
-        print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} ===")
+        is_system = node["type"] == "system"
+
+        if is_system:
+            print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} (system) ===")
+        else:
+            print(f"\n=== {node['_kind'].upper()} {name.split("-", 1)[1]} ===")
+
+        install_dir = sysroot / "system" if is_system else sysroot / "pkg" / name.split("-", 1)[1]
+        print(f"(installing at `{install_dir}`)")
 
         src = sources[node["source"]]
         build_dir = build_root / f"build-{name}"
         build_dir.mkdir(parents=True, exist_ok=True)
 
         metavars["SOURCES"] = src
+        metavars["INSTALL_DIR"] = install_dir
 
         dep_stamps = [built_stamps[d] for d in node["_deps"]]
         new_sig = compute_node_signature(

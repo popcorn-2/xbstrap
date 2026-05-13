@@ -19,5 +19,5 @@ packages:
       -C target-feature=+crt-static
     # -C target-cpu=native
     install:
-      - mkdir -p @@SYSROOT@@/pkg/pipc/bin/
-      - install @@TRIPLE@@/release/pipc.exec @@SYSROOT@@/pkg/pipc/bin/pipc.exec
+      - mkdir -p @@INSTALL_DIR@@/bin/
+      - install @@TRIPLE@@/release/pipc.exec @@INSTALL_DIR@@/bin/pipc.exec

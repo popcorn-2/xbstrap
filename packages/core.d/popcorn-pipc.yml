@@ -8,9 +8,9 @@ tools:
     require-tools:
       - rust
     build: >
-      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
-      @@TOOLCHAIN@@/system/bin/cargo build
+      env RUSTC=@@TOOLCHAIN@@/bin/rustc
+      @@TOOLCHAIN@@/bin/cargo build
       --target-dir .
       --manifest-path @@SOURCES@@/Cargo.toml
     install: >
-      install debug/pipc @@TOOLCHAIN@@/system/bin/pipc || install debug/pipc.exe @@TOOLCHAIN@@/system/bin/pipc.exe
+      install debug/pipc @@TOOLCHAIN@@/bin/pipc || install debug/pipc.exe @@TOOLCHAIN@@/bin/pipc.exe
