@@ -11,10 +11,9 @@ lld = true
 
 [build]
 host = [
-        # "x86_64-unknown-popcorn",
-        "x86_64-apple-darwin"
+        "@@HOST@@"
 ]
-target = ["x86_64-unknown-popcorn", "x86_64-apple-darwin"] # we don't bother building the uefi target since it's only used by one crate and we can use build-std instead
+target = ["x86_64-unknown-popcorn", "@@HOST@@"] # we don't bother building the uefi target since it's only used by one crate and we can use build-std instead
 description = "Popcorn2"
 docs = false
 compiler-docs = false

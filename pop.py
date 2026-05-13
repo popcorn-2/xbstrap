@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 from collections import defaultdict, deque
+import platform
 
 import yaml
 import hashlib
@@ -118,6 +119,27 @@ def already_configured(build_dir: Path) -> bool:
         return True
 
     return False
+
+
+def get_target_triple():
+    arch = platform.machine()
+    if arch.lower() in ["arm64", "aarch64"]:
+        arch = "aarch64"
+    elif arch.lower() in ["amd64", "x86_64"]:
+        arch = "x86_64"
+
+    # 2. Determine Vendor and OS
+    system = platform.system().lower()
+    vendor = "unknown"
+    os_name = system
+    
+    if system == "darwin":
+        vendor = "apple"
+    elif system == "windows":
+        vendor = "pc"
+        os_name = "windows-gnu"
+
+    return f"{arch}-{vendor}-{os_name}"
 
 
 # ---------------- yaml loading ----------------
@@ -263,6 +285,7 @@ def main():
         "TRIPLE": triple,
         "CONFIG": config_dir,
         "ARCH_ALT": alt_arch(arch),
+        "HOST": get_target_triple(),
     }
 
     # ---- patch config files ----
