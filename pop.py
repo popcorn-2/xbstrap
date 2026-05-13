@@ -327,7 +327,7 @@ def main():
     for name in order:
         node = nodes[name]
         is_system = node.get("type") == "system"
-        if is_system is not None and node['_kind'].upper() != "package":
+        if is_system is not None and node['_kind'].upper() != "PACKAGE":
             print(f"WARNING: `type` is ignored for tool {name.split("-", 1)[1]}")
 
         if is_system:
