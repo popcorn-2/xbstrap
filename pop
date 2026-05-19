@@ -1,0 +1,434 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import platform
+import re
+import subprocess
+import sys
+import tarfile
+import urllib.request
+import urllib.error
+import yaml
+from pathlib import Path
+
+def get_host_triple():
+    arch = platform.machine().lower()
+    if arch in ('amd64', 'x86_64'):
+        arch = 'x86_64'
+    elif arch in ('aarch64', 'arm64'):
+        arch = 'aarch64'
+        
+    sys_name = platform.system().lower()
+    if sys_name == 'darwin':
+        return f"{arch}-apple-darwin"
+    elif sys_name == 'windows':
+        return f"{arch}-pc-windows-msvc"
+    else:
+        return f"{arch}-unknown-linux-gnu"
+
+class Package:
+    def __init__(self, data, manifest_dir):
+        self.name = data.get('name')
+        self.git = data.get('git')
+        self.source = data.get('source')
+        self.binary_url = data.get('binary-url')
+        self.license = data.get('license')
+        self.author = data.get('author', [])
+        self.maintainer = data.get('maintainer', [])
+        
+        self.available_features = self._parse_features(data.get('features', []))
+        
+        self.build_depends = data.get('build-depends', [])
+        self.depends = data.get('depends', [])
+        
+        self.configure = data.get('configure', [])
+        self.build = data.get('build', [])
+        self.install = data.get('install', [])
+        self.post_install = data.get('post-install', [])
+        
+        self.triggers = {}
+        for trig in data.get('triggers', []):
+            if isinstance(trig, dict):
+                for k, v in trig.items():
+                    self.triggers[k] = v
+                    
+        self.manifest_dir = manifest_dir
+        self.safe_name = self.name.replace('@', '').replace('/', '_')
+        
+        # Split source and build directories for clean out-of-tree builds
+        self.source_dir = Path.cwd() / "pop-sources" / self.safe_name
+        self.build_dir = Path.cwd() / "build-workspaces" / self.safe_name
+
+    def _parse_features(self, feature_list):
+        features = set()
+        for item in feature_list:
+            if isinstance(item, str):
+                features.add(item)
+            elif isinstance(item, dict):
+                for key, subfeatures in item.items():
+                    features.add(key)
+                    if subfeatures:
+                        for sub in subfeatures:
+                            features.add(f"{key}-{sub}")
+        return features
+
+class Registry:
+    def __init__(self):
+        self.packages = {}
+        self.loaded_files = set()
+
+    def load_manifest(self, filepath):
+        filepath = Path(filepath).resolve()
+        if filepath in self.loaded_files:
+            return
+        self.loaded_files.add(filepath)
+
+        if not filepath.exists():
+            print(f"Error: Manifest {filepath} not found.")
+            sys.exit(1)
+
+        with open(filepath, 'r') as f:
+            data = yaml.safe_load(f) or {}
+
+        for imp in data.get('imports', []):
+            imp_path = (filepath.parent / imp).resolve()
+            self.load_manifest(imp_path)
+
+        for pkg_data in data.get('packages', []):
+            pkg = Package(pkg_data, filepath.parent)
+            self.packages[pkg.name] = pkg
+
+    def get(self, name):
+        if name not in self.packages:
+            print(f"Error: Package '{name}' not found in registry.")
+            sys.exit(1)
+        return self.packages[name]
+
+class Builder:
+    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False):
+        self.registry = registry
+        self.base_sysroot = Path(base_sysroot).resolve()
+        self.host_sysroot = Path.cwd() / "pop-host-sysroot"
+        self.cache_dir = Path(cache_dir).resolve()
+        self.host_triple = host_triple
+        self.target_triple = target_triple
+        self.config_dir = Path(config_dir).resolve()
+        self.dry_run = dry_run
+        
+        self.built_packages = set()
+        self.queued_triggers = set()
+
+    def parse_pkg_req(self, req_str):
+        parts = req_str.split(':')
+        name = parts[0]
+        features = set(parts[1].split(',')) if len(parts) > 1 else set()
+        return name, features
+
+    def get_sysroot(self, pkg, is_build_dep):
+        base = self.host_sysroot if is_build_dep else self.base_sysroot
+        return base / "pkg" / pkg.name.lstrip('@')
+
+    def get_target_triple(self, is_build_dep):
+        return self.host_triple if is_build_dep else self.target_triple
+
+    def get_archive_path(self, pkg, is_build_dep, requested_features):
+        triple = self.get_target_triple(is_build_dep)
+        # Suffix cache name with features to prevent cache collisions
+        feat_suffix = ("-" + "-".join(sorted(requested_features))) if requested_features else ""
+        return self.cache_dir / f"{pkg.safe_name}{feat_suffix}-{triple}.tar.gz"
+
+    def expand_url(self, url, pkg, is_build_dep, requested_features):
+        target_triple = self.get_target_triple(is_build_dep)
+        url = url.replace('{NAME}', pkg.name)
+        url = url.replace('{SAFE_NAME}', pkg.safe_name)
+        url = url.replace('{TARGET}', target_triple)
+        return url
+
+    def expand_command(self, cmd, pkg, is_build_dep, requested_features):
+        if isinstance(cmd, list):
+            cmd = " ".join(cmd)
+            
+        current_base = self.host_sysroot if is_build_dep else self.base_sysroot
+        pkg_sysroot = self.get_sysroot(pkg, is_build_dep)
+        target_triple = self.get_target_triple(is_build_dep)
+
+        # Standard Variable Replacements
+        cmd = cmd.replace('\n', ' ')
+        cmd = cmd.replace('{BASE_SYSROOT}', str(current_base))
+        cmd = cmd.replace('{SYSROOT}', str(pkg_sysroot))
+        cmd = cmd.replace('{SYSROOT:host}', str(self.host_sysroot))
+        cmd = cmd.replace('{TARGET}', target_triple)
+        cmd = cmd.replace('{CONFIG}', str(self.config_dir))
+        cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
+        
+        # Dependency Workspace Replacements
+        def repl_dep(match):
+            dep_pkg = self.registry.get(match.group(1))
+            return str(dep_pkg.source_dir)
+        cmd = re.sub(r'\{DEP:([^}]+)\}', repl_dep, cmd)
+        
+        # Feature Conditionals: {FEAT:name:value} and {NOFEAT:name:value}
+        def repl_feat(match):
+            feat, val = match.groups()
+            return val if feat in requested_features else ""
+            
+        def repl_nofeat(match):
+            feat, val = match.groups()
+            return val if feat not in requested_features else ""
+            
+        cmd = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, cmd)
+        cmd = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, cmd)
+        
+        # Clean up double spaces caused by empty replacements
+        cmd = re.sub(r'\s+', ' ', cmd).strip()
+        return cmd
+
+    def run_command(self, cmd, cwd):
+        prefix = "[DRY-RUN] " if self.dry_run else "[EXEC] "
+        print(f"    {prefix}{cmd}")
+        if not self.dry_run:
+            cwd.mkdir(parents=True, exist_ok=True)
+            subprocess.run(cmd, cwd=cwd, shell=True, check=True)
+
+    def fetch(self, pkg):
+        if not self.dry_run:
+            pkg.source_dir.parent.mkdir(parents=True, exist_ok=True)
+            
+        if pkg.git:
+            if not pkg.source_dir.exists() and not self.dry_run:
+                print(f"  -> Cloning {pkg.git}")
+                subprocess.run(["git", "clone", pkg.git, str(pkg.source_dir)], check=True)
+            else:
+                print(f"  -> Source ready: {pkg.git}")
+        elif pkg.source:
+            source_pkg = self.registry.get(pkg.source)
+            print(f"  -> Using source from {source_pkg.name}")
+            if not pkg.source_dir.exists() and not self.dry_run:
+                os.symlink(source_pkg.source_dir, pkg.source_dir)
+
+    def download_binary(self, pkg, is_build_dep, requested_features):
+        archive_path = self.get_archive_path(pkg, is_build_dep, requested_features)
+        if archive_path.exists():
+            return True 
+            
+        if not pkg.binary_url:
+            return False
+
+        url = self.expand_url(pkg.binary_url, pkg, is_build_dep, requested_features)
+        print(f"  -> Downloading binary from {url}")
+        
+        if self.dry_run:
+            return True
+
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 Pop/1.0'})
+            with urllib.request.urlopen(req) as response, open(archive_path, 'wb') as out_file:
+                total_size = int(response.info().get('Content-Length', -1))
+                downloaded = 0
+                chunk_size = 8192
+                
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    out_file.write(chunk)
+                    downloaded += len(chunk)
+                    
+                    if total_size > 0:
+                        percent = int((downloaded / total_size) * 100)
+                        sys.stdout.write(f"\r  -> Progress: {percent}% ({downloaded}/{total_size} bytes)")
+                        sys.stdout.flush()
+                print()
+            return True
+        except urllib.error.URLError as e:
+            print(f"\n  [!] Failed to download: {e}")
+            if archive_path.exists():
+                archive_path.unlink()
+            return False
+
+    def create_archive(self, pkg, is_build_dep, requested_features):
+        if self.dry_run:
+            return
+            
+        archive_path = self.get_archive_path(pkg, is_build_dep, requested_features)
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        pkg_sysroot = self.get_sysroot(pkg, is_build_dep)
+        
+        print(f"  -> Packaging {pkg.name} into {archive_path.name}...")
+        with tarfile.open(archive_path, "w:gz") as tar:
+            tar.add(pkg_sysroot, arcname=".")
+
+    def extract_archive(self, pkg, is_build_dep, requested_features):
+        archive_path = self.get_archive_path(pkg, is_build_dep, requested_features)
+        if not archive_path.exists():
+            return False
+            
+        if not self.dry_run:
+            pkg_sysroot = self.get_sysroot(pkg, is_build_dep)
+            pkg_sysroot.mkdir(parents=True, exist_ok=True)
+            print(f"  -> Extracting {archive_path.name} to {pkg_sysroot}...")
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(path=pkg_sysroot)
+        return True
+
+    def _queue_triggers(self, pkg, is_build_dep):
+        for trigger_req in pkg.post_install:
+            if ':' in trigger_req:
+                t_pkg_name, t_name = trigger_req.rsplit(':', 1)
+            else:
+                t_pkg_name, t_name = trigger_req.rsplit('/', 1)
+            
+            t_pkg = self.registry.get(t_pkg_name)
+            
+            if t_name not in t_pkg.triggers:
+                print(f"\n[!] ERROR: Package '{pkg.name}' requested trigger '{t_name}' from '{t_pkg_name}', but it doesn't exist.")
+                sys.exit(1)
+            
+            self.queued_triggers.add((t_pkg_name, t_name, is_build_dep))
+
+    def process(self, pkg_req, is_build_dep=False, from_source=False, create_tarball=False, skip_triggers=False):
+        name, requested_features = self.parse_pkg_req(pkg_req)
+        
+        # Cache key relies on name and build_dep status
+        if (name, is_build_dep) in self.built_packages:
+            return
+            
+        pkg = self.registry.get(name)
+        
+        invalid_feats = requested_features - pkg.available_features
+        if invalid_feats:
+            print(f"\n[!] ERROR: Package '{name}' does not provide requested features: {', '.join(invalid_feats)}")
+            sys.exit(1)
+
+        print(f"\n>>> Resolving {name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
+
+        # 1. Resolve Dependencies (DFS)
+        for dep_req in pkg.build_depends:
+            self.process(dep_req, is_build_dep=True, from_source=from_source, create_tarball=create_tarball, skip_triggers=skip_triggers)
+        for dep_req in pkg.depends:
+            self.process(dep_req, is_build_dep=is_build_dep, from_source=from_source, create_tarball=create_tarball, skip_triggers=skip_triggers)
+
+        print(f"\n>>> Processing {name}")
+
+        # 2. Check Binary Cache and Download
+        if not from_source:
+            if self.download_binary(pkg, is_build_dep, requested_features) and self.extract_archive(pkg, is_build_dep, requested_features):
+                print(f"  -> Successfully installed {name} from binary cache.")
+                if not skip_triggers:
+                    self._queue_triggers(pkg, is_build_dep)
+                self.built_packages.add((name, is_build_dep))
+                return
+            
+            print(f"  -> No binary cache available for {name}. Falling back to building from source.")
+
+        # 3. Source Build Pipeline
+        self.fetch(pkg)
+
+        if pkg.configure:
+            cmd = self.expand_command(pkg.configure, pkg, is_build_dep, requested_features)
+            self.run_command(cmd, pkg.build_dir) # Execute out-of-tree in build_dir
+
+        if pkg.build:
+            for step in (pkg.build if isinstance(pkg.build, list) else [pkg.build]):
+                cmd = self.expand_command(step, pkg, is_build_dep, requested_features)
+                self.run_command(cmd, pkg.build_dir)
+
+        if pkg.install:
+            for step in (pkg.install if isinstance(pkg.install, list) else [pkg.install]):
+                cmd = self.expand_command(step, pkg, is_build_dep, requested_features)
+                self.run_command(cmd, pkg.build_dir)
+
+        # 4. Post-Build Actions
+        if create_tarball:
+            self.create_archive(pkg, is_build_dep, requested_features)
+
+        if not skip_triggers:
+            self._queue_triggers(pkg, is_build_dep)
+
+        self.built_packages.add((name, is_build_dep))
+
+    def execute_triggers(self):
+        if not self.queued_triggers:
+            return
+            
+        print("\n>>> Executing Post-Install Triggers")
+        for t_pkg_name, t_name, is_build_dep in self.queued_triggers:
+            print(f"  -> Trigger: {t_pkg_name}:{t_name}")
+            t_pkg = self.registry.get(t_pkg_name)
+            cmd_template = t_pkg.triggers[t_name]
+            
+            cmd = self.expand_command(cmd_template, t_pkg, is_build_dep, set())
+            trigger_cwd = self.host_sysroot if is_build_dep else self.base_sysroot
+            self.run_command(cmd, trigger_cwd)
+
+def main():
+    parser = argparse.ArgumentParser(description="Pop OS Package Manager & Bootstrap System")
+    
+    parser.add_argument('--manifest', default='packages.yml', help="Root YAML manifest file")
+    parser.add_argument('--config', default='./config', help="Path to config dir")
+    parser.add_argument('--sysroot', default='/', help="Base target sysroot directory")
+    parser.add_argument('--cache-dir', default='./pop-cache', help="Directory to store/fetch pre-built package tarballs")
+    parser.add_argument('--target', help="Cross-compile target triple")
+    parser.add_argument('--host', help="Host architecture triple")
+    parser.add_argument('--dry-run', action='store_true', help="Print commands without executing them")
+    parser.add_argument('--from-source', action='store_true', help="Force build from source (ignore binary caches)")
+    
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    install_parser = subparsers.add_parser('install', help="Install a package")
+    install_parser.add_argument('target', nargs='?', help="Package target, e.g. @core/example:cxx")
+    install_parser.add_argument('--list', help="File containing list of packages to install")
+
+    pkg_parser = subparsers.add_parser('package', help="Build package from source and generate a binary tarball archive")
+    pkg_parser.add_argument('target', help="Package target, e.g. @core/example:cxx")
+    
+    info_parser = subparsers.add_parser('info', help="Print parsed package information")
+    info_parser.add_argument('target', help="Package name to inspect")
+
+    args = parser.parse_args()
+
+    host_triple = args.host or get_host_triple()
+    target_triple = args.target or host_triple
+
+    registry = Registry()
+    registry.load_manifest(args.manifest)
+
+    if args.command == 'info':
+        pkg = registry.get(args.target)
+        print(f"Package: {pkg.name}")
+        print(f"Host Triple: {host_triple}")
+        print(f"Target Triple: {target_triple}")
+        print("-" * 40)
+        print(yaml.dump({
+            "features": list(pkg.available_features),
+            "depends": pkg.depends,
+            "build-depends": pkg.build_depends,
+            "triggers_provided": list(pkg.triggers.keys()),
+            "triggers_requested": pkg.post_install,
+            "binary_url": pkg.binary_url
+        }, sort_keys=False))
+        sys.exit(0)
+
+    builder = Builder(registry, args.sysroot, args.cache_dir, host_triple, target_triple, args.config, args.dry_run)
+
+    if args.command == 'install':
+        if args.list:
+            with open(args.list, 'r') as f:
+                for line in f:
+                    target = line.strip()
+                    if target and not target.startswith('#'):
+                        builder.process(target, from_source=args.from_source)
+        elif args.target:
+            builder.process(args.target, from_source=args.from_source)
+        else:
+            print("Error: Must provide a target or a --list")
+            sys.exit(1)
+            
+        builder.execute_triggers()
+
+    elif args.command == 'package':
+        builder.process(args.target, from_source=True, create_tarball=True, skip_triggers=True)
+
+if __name__ == '__main__':
+    main()
