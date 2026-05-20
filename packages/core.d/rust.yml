@@ -4,11 +4,11 @@ sources:
     depth: 50 # we need at least one upstream commit
     recursive: false
 
-tools:
-  - name: rust
-    source: rust
-    require-tools:
-      - llvm
+packages:
+  - name: "@dev/rustc"
+    git: 'https://github.com/popcorn-2/rust.git'
+    build-depends:
+      - "@dev/llvm:clang,lld,compiler-rt,compiler-rt-builtins,unwind"
     build:
       - '@@SOURCES@@/x.py build --config @@CONFIG@@/rust/bootstrap.toml'
       - '@@SOURCES@@/x.py dist rust-src --config @@CONFIG@@/rust/bootstrap.toml' # we need this for build-std
