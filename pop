@@ -41,8 +41,23 @@ class Package:
         
         self.available_features = self._parse_features(data.get('features', []))
         
-        self.build_depends = data.get('build-depends', [])
-        self.depends = data.get('depends', [])
+        build_depends = data.get('build-depends', [])
+        self.build_depends = {}
+        for dep in build_depends:
+            split = dep.split(":")
+            self.build_depends[split[0]] = []
+            if len(split) > 1:
+                features = split[1].split(",")
+                self.build_depends[split[0]] = features
+
+        depends = data.get('depends', [])
+        self.depends = {}
+        for dep in depends:
+            split = dep.split(":")
+            self.depends[split[0]] = []
+            if len(split) > 1:
+                features = split[1].split(",")
+                self.depends[split[0]] = features
         
         self.configure = data.get('configure', [])
         self.build = data.get('build', [])
@@ -392,13 +407,21 @@ class Builder:
 
         # 1. Resolve Dependencies
         if from_source:
-            for dep_req in pkg.build_depends:
+            for (name, feats) in pkg.build_depends.items():
+                dep_req = name
+                if len(feats) > 0:
+                    dep_req += ":"
+                    dep_req += ",".join(feats)
                 dep_req = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, dep_req)
                 dep_req = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
                 if len(dep_req) == 0:
                     continue
                 self.process(dep_req, is_build_dep=True, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
-        for dep_req in pkg.depends:
+        for (name, feats) in pkg.depends.items():
+            dep_req = name
+            if len(feats) > 0:
+                dep_req += ":"
+                dep_req += ",".join(feats)
             dep_req = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, dep_req)
             dep_req = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
             if len(dep_req) == 0:
