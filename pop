@@ -107,14 +107,38 @@ class Registry:
             sys.exit(1)
         return self.packages[name]
 
+class Triple:
+    def __init__(self, name):
+        split = name.split("-")
+        self.arch = split[0]
+        self.vendor = split[1]
+        self.os = split[2]
+    
+    def __repr__(self):
+        return self.triple
+    
+    def _alt_arch(arch):
+        if arch == "x86_64":
+            return "amd64"
+        else:
+            return arch
+
+    @property
+    def arch_alt(self):
+        return self._alt_arch(self.arch)
+
+    @property
+    def triple(self):
+        return f"{self.arch}-{self.vendor}-{self.os}"
+
 class Builder:
     def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, force_source=False):
         self.registry = registry
         self.base_sysroot = Path(base_sysroot).resolve()
         self.host_sysroot = Path.cwd() / "pop-host-sysroot" if host_triple != target_triple else self.base_sysroot
         self.cache_dir = Path(cache_dir).resolve()
-        self.host_triple = host_triple
-        self.target_triple = target_triple
+        self.host_triple = Triple(host_triple)
+        self.target_triple = Triple(target_triple)
         self.config_dir = Path(config_dir).resolve()
         self.dry_run = dry_run
         self.force_source = force_source
@@ -173,10 +197,10 @@ class Builder:
     def get_archive_path(self, pkg, is_build_dep, requested_features):
         triple = self.get_target_triple(is_build_dep)
         feat_suffix = self._get_feat_suffix(requested_features)
-        return self.cache_dir / f"{pkg.safe_name}{feat_suffix}-{triple}.tar.gz"
+        return self.cache_dir / f"{pkg.safe_name}{feat_suffix}-{triple.triple}.tar.gz"
 
     def get_feature_subset_match(self, available_files, template_name, pkg, is_build_dep, requested_features):
-        target_triple = self.get_target_triple(is_build_dep)
+        target_triple = self.get_target_triple(is_build_dep).triple
         
         if '{FEATURES}' in template_name:
             prefix, suffix = template_name.split('{FEATURES}', 1)
@@ -223,7 +247,7 @@ class Builder:
             
         gh_match = re.match(r'^https://github.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.*)$', pkg.binary_url)
         if not gh_match:
-            target_triple = self.get_target_triple(is_build_dep)
+            target_triple = self.get_target_triple(is_build_dep).triple
             url = pkg.binary_url.replace('{NAME}', pkg.name).replace('{SAFE_NAME}', pkg.safe_name).replace('{TARGET}', target_triple).replace('{FEATURES}', self._get_feat_suffix(requested_features))
             # Verify file exists before claiming we can use it
             try:
@@ -350,10 +374,18 @@ class Builder:
 
         cmd = cmd.replace('{BASE_SYSROOT}', str(current_base))
         cmd = cmd.replace('{SYSROOT}', str(pkg_staging))
-        cmd = cmd.replace('{TARGET}', target_triple)
+        cmd = cmd.replace('{TARGET}', target_triple.triple)
+        cmd = cmd.replace('{TARGET:arch}', target_triple.arch)
+        cmd = cmd.replace('{TARGET:vendor}', target_triple.vendor)
+        cmd = cmd.replace('{TARGET:os}', target_triple.os)
+        cmd = cmd.replace('{TARGET:arch_alt}', target_triple.arch_alt)
         cmd = cmd.replace('{CONFIG}', str(self.config_dir))
         cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
-        cmd = cmd.replace('{HOST}', self.host_triple)
+        cmd = cmd.replace('{HOST}', self.host_triple.triple)
+        cmd = cmd.replace('{HOST:arch}', self.host_triple.arch)
+        cmd = cmd.replace('{HOST:vendor}', self.host_triple.vendor)
+        cmd = cmd.replace('{HOST:os}', self.host_triple.os)
+        cmd = cmd.replace('{HOST:arch_alt}', self.host_triple.arch_alt)
         
         # Validate dependency macros dynamically
         active_build_deps = self.get_resolved_dep_names(pkg.build_depends, requested_features)
