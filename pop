@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import platform
 import re
@@ -117,6 +118,7 @@ class Builder:
         
         self.built_packages = set()
         self.queued_triggers = set()
+        self.github_assets_cache = {}
 
     def parse_pkg_req(self, req_str):
         parts = req_str.split(':')
@@ -131,20 +133,105 @@ class Builder:
     def get_target_triple(self, is_build_dep):
         return self.host_triple if is_build_dep else self.target_triple
 
+    def _get_feat_suffix(self, requested_features):
+        # Use '+' instead of '-' to delimit features, so feature names containing dashes parse cleanly
+        return ("-" + "+".join(sorted(requested_features))) if requested_features else ""
+
     def get_archive_path(self, pkg, is_build_dep, requested_features):
         triple = self.get_target_triple(is_build_dep)
-        # Suffix cache name with features to prevent cache collisions
-        feat_suffix = ("-" + "-".join(sorted(requested_features))) if requested_features else ""
+        feat_suffix = self._get_feat_suffix(requested_features)
         return self.cache_dir / f"{pkg.safe_name}{feat_suffix}-{triple}.tar.gz"
 
-    def expand_url(self, url, pkg, is_build_dep, requested_features):
+    def get_feature_subset_match(self, available_files, template_name, pkg, is_build_dep, requested_features):
         target_triple = self.get_target_triple(is_build_dep)
-        feat_suffix = ("-" + "-".join(sorted(requested_features))) if requested_features else ""
-        url = url.replace('{NAME}', pkg.name)
-        url = url.replace('{SAFE_NAME}', pkg.safe_name)
-        url = url.replace('{TARGET}', target_triple)
-        url = url.replace('{FEATURES}', feat_suffix)
-        return url
+        
+        if '{FEATURES}' in template_name:
+            prefix, suffix = template_name.split('{FEATURES}', 1)
+        else:
+            prefix = template_name
+            suffix = ""
+
+        prefix = prefix.replace('{SAFE_NAME}', pkg.safe_name).replace('{TARGET}', target_triple).replace('{NAME}', pkg.name)
+        suffix = suffix.replace('{SAFE_NAME}', pkg.safe_name).replace('{TARGET}', target_triple).replace('{NAME}', pkg.name)
+
+        candidates = []
+        for f in available_files:
+            if f.startswith(prefix) and f.endswith(suffix):
+                feat_str = f[len(prefix):len(f)-len(suffix)]
+                if feat_str == "":
+                    feats = set()
+                elif feat_str.startswith("-"):
+                    feats = set(feat_str[1:].split("+"))
+                else:
+                    continue
+                
+                # We want a file that has AT LEAST the requested features
+                if requested_features.issubset(feats):
+                    candidates.append((len(feats), feats, f))
+        
+        if candidates:
+            # Sort by fewest extra features first, then lexicographically
+            candidates.sort(key=lambda x: (x[0], x[2]))
+            return candidates[0] # Returns (len(feats), feats, filename)
+        return None
+
+    def find_local_cache(self, pkg, is_build_dep, requested_features):
+        if not self.cache_dir.exists():
+            return None
+        
+        available = os.listdir(self.cache_dir)
+        template = "{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz"
+        match = self.get_feature_subset_match(available, template, pkg, is_build_dep, requested_features)
+        
+        if match:
+            _, _, filename = match
+            return self.cache_dir / filename
+        return None
+
+    def find_remote_binary(self, pkg, is_build_dep, requested_features):
+        if not pkg.binary_url:
+            return None, None
+            
+        gh_match = re.match(r'^https://github.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.*)$', pkg.binary_url)
+        if not gh_match:
+            # Not a GitHub URL, fallback to generating the exact URL
+            target_triple = self.get_target_triple(is_build_dep)
+            url = pkg.binary_url.replace('{NAME}', pkg.name).replace('{SAFE_NAME}', pkg.safe_name).replace('{TARGET}', target_triple).replace('{FEATURES}', self._get_feat_suffix(requested_features))
+            return url, requested_features
+
+        owner, repo, tag, filename_template = gh_match.groups()
+        
+        # Route to the correct GitHub API endpoint
+        if tag.lower() == 'latest':
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+        else:
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
+        
+        if api_url not in self.github_assets_cache:
+            try:
+                req = urllib.request.Request(api_url, headers={'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'Mozilla/5.0 Pop/1.0'})
+                with urllib.request.urlopen(req) as response:
+                    data = json.loads(response.read().decode('utf-8'))
+                    # Cache a dictionary mapping filename -> real download URL
+                    self.github_assets_cache[api_url] = {
+                        asset['name']: asset['browser_download_url'] 
+                        for asset in data.get('assets', [])
+                    }
+            except Exception as e:
+                print(f"  [!] Failed to fetch GitHub release info: {e}")
+                self.github_assets_cache[api_url] = {}
+                
+        # Get list of filenames and find the best feature-superset match
+        available_assets = list(self.github_assets_cache[api_url].keys())
+        match = self.get_feature_subset_match(available_assets, filename_template, pkg, is_build_dep, requested_features)
+        
+        if match:
+            _, matched_feats, matched_filename = match
+            # Get the exact download URL provided by the API
+            download_url = self.github_assets_cache[api_url][matched_filename]
+            return download_url, matched_feats
+            
+        return None, None
 
     def expand_command(self, cmd, pkg, is_build_dep, requested_features):
         if isinstance(cmd, list):
@@ -153,20 +240,17 @@ class Builder:
         pkg_sysroot = self.get_sysroot(pkg, is_build_dep)
         target_triple = self.get_target_triple(is_build_dep)
 
-        # Standard Variable Replacements
         cmd = cmd.replace('\n', ' ')
         cmd = cmd.replace('{SYSROOT}', str(pkg_sysroot))
         cmd = cmd.replace('{TARGET}', target_triple)
         cmd = cmd.replace('{CONFIG}', str(self.config_dir))
         cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
         
-        # Dependency Workspace Replacements
         def repl_dep(match):
             dep_pkg = self.registry.get(match.group(1))
             return str(dep_pkg.source_dir)
         cmd = re.sub(r'\{DEP:([^}]+)\}', repl_dep, cmd)
         
-        # Feature Conditionals: {FEAT:name:value} and {NOFEAT:name:value}
         def repl_feat(match):
             feat, val = match.groups()
             return val if feat in requested_features else ""
@@ -178,7 +262,6 @@ class Builder:
         cmd = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, cmd)
         cmd = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, cmd)
         
-        # Clean up double spaces caused by empty replacements
         cmd = re.sub(r'\s+', ' ', cmd).strip()
         return cmd
 
@@ -205,24 +288,16 @@ class Builder:
             if not pkg.source_dir.exists() and not self.dry_run:
                 os.symlink(source_pkg.source_dir, pkg.source_dir)
 
-    def download_binary(self, pkg, is_build_dep, requested_features):
-        archive_path = self.get_archive_path(pkg, is_build_dep, requested_features)
-        if archive_path.exists():
-            return True 
-            
-        if not pkg.binary_url:
-            return False
-
-        url = self.expand_url(pkg.binary_url, pkg, is_build_dep, requested_features)
+    def download_binary_from_url(self, url, target_cache_path):
         print(f"  -> Downloading binary from {url}")
         
         if self.dry_run:
             return True
 
-        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        target_cache_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 Pop/1.0'})
-            with urllib.request.urlopen(req) as response, open(archive_path, 'wb') as out_file:
+            with urllib.request.urlopen(req) as response, open(target_cache_path, 'wb') as out_file:
                 total_size = int(response.info().get('Content-Length', -1))
                 downloaded = 0
                 chunk_size = 8192
@@ -242,8 +317,8 @@ class Builder:
             return True
         except urllib.error.URLError as e:
             print(f"\n  [!] Failed to download: {e}")
-            if archive_path.exists():
-                archive_path.unlink()
+            if target_cache_path.exists():
+                target_cache_path.unlink()
             return False
 
     def create_archive(self, pkg, is_build_dep, requested_features):
@@ -258,8 +333,7 @@ class Builder:
         with tarfile.open(archive_path, "w:gz") as tar:
             tar.add(pkg_sysroot, arcname=".")
 
-    def extract_archive(self, pkg, is_build_dep, requested_features):
-        archive_path = self.get_archive_path(pkg, is_build_dep, requested_features)
+    def extract_archive(self, archive_path, pkg, is_build_dep):
         if not archive_path.exists():
             return False
             
@@ -274,7 +348,6 @@ class Builder:
     def _queue_triggers(self, pkg, is_build_dep):
         for trigger_req in pkg.post_install:
             t_pkg_name, t_name = trigger_req.rsplit(':', 1)
-            
             t_pkg = self.registry.get(t_pkg_name)
             
             if t_name not in t_pkg.triggers:
@@ -286,7 +359,6 @@ class Builder:
     def process(self, pkg_req, is_build_dep=False, from_source=False, create_tarball=False, skip_triggers=False):
         name, requested_features = self.parse_pkg_req(pkg_req)
         
-        # Cache key relies on name and build_dep status
         if (name, is_build_dep) in self.built_packages:
             return
             
@@ -299,7 +371,7 @@ class Builder:
 
         print(f"\n>>> Resolving {name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
 
-        # 1. Resolve Dependencies (DFS)
+        # 1. Resolve Dependencies
         for dep_req in pkg.build_depends:
             self.process(dep_req, is_build_dep=True, from_source=from_source, create_tarball=False, skip_triggers=skip_triggers)
         for dep_req in pkg.depends:
@@ -309,21 +381,36 @@ class Builder:
 
         # 2. Check Binary Cache and Download
         if not from_source:
-            if self.download_binary(pkg, is_build_dep, requested_features) and self.extract_archive(pkg, is_build_dep, requested_features):
-                print(f"  -> Successfully installed {name} from binary cache.")
-                if not skip_triggers:
-                    self._queue_triggers(pkg, is_build_dep)
-                self.built_packages.add((name, is_build_dep))
-                return
+            # Check local cache first for a superset match
+            cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
+            if cached_path:
+                print(f"  -> Found suitable cached binary: {cached_path.name}")
+                if self.extract_archive(cached_path, pkg, is_build_dep):
+                    if not skip_triggers:
+                        self._queue_triggers(pkg, is_build_dep)
+                    self.built_packages.add((name, is_build_dep))
+                    return
             
-            print(f"  -> No binary cache available for {name}. Falling back to building from source.")
+            # Check remote for a superset match
+            remote_url, matched_feats = self.find_remote_binary(pkg, is_build_dep, requested_features)
+            if remote_url:
+                target_cache_path = self.get_archive_path(pkg, is_build_dep, matched_feats)
+                if self.download_binary_from_url(remote_url, target_cache_path):
+                    if self.extract_archive(target_cache_path, pkg, is_build_dep):
+                        print(f"  -> Successfully installed {name} from downloaded binary.")
+                        if not skip_triggers:
+                            self._queue_triggers(pkg, is_build_dep)
+                        self.built_packages.add((name, is_build_dep))
+                        return
+            
+            print(f"  -> No binary cache available for {name} with features {requested_features}. Falling back to source build.")
 
         # 3. Source Build Pipeline
         self.fetch(pkg)
 
         if pkg.configure:
             cmd = self.expand_command(pkg.configure, pkg, is_build_dep, requested_features)
-            self.run_command(cmd, pkg.build_dir) # Execute out-of-tree in build_dir
+            self.run_command(cmd, pkg.build_dir) 
 
         if pkg.build:
             for step in (pkg.build if isinstance(pkg.build, list) else [pkg.build]):

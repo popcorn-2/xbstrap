@@ -1,7 +1,7 @@
 packages:
   - name: "@dev/llvm"
     git: 'https://github.com/popcorn-2/llvm-project.git'
-    binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/nightly-2026-05-20/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
+    binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/latest/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
     license: 'Apache-2.0 WITH LLVM-exception'
     author:
       - 'LLVM Project'
@@ -37,5 +37,94 @@ packages:
       {SOURCES}/llvm
     build:
       - cmake --build . --target distribution
+    install:
+      - DESTDIR={SYSROOT} cmake --install . --strip --prefix=/
+
+  - name: "@core/compiler-rt-builtins"
+    source: "@dev/llvm"
+    #binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/nightly-2026-05-20/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
+    license: 'Apache-2.0 WITH LLVM-exception'
+    author:
+      - 'LLVM Project'
+      - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
+    maintainer:
+      - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
+    build-depends:
+      - "@dev/llvm"
+    configure: >
+      cmake
+      -G Ninja
+      -B .
+      -D CMAKE_BUILD_TYPE=RelWithDebInfo
+      -D CMAKE_C_COMPILER=clang
+      -D CMAKE_CXX_COMPILER=clang++
+      -D CMAKE_ASM_COMPILER=clang
+      -D CMAKE_AR=llvm-ar
+      -D CMAKE_NM=llvm-nm
+      -D CMAKE_RANLIB=llvm-ranlib
+      -D CMAKE_C_COMPILER_TARGET={TARGET}
+      -D CMAKE_CXX_COMPILER_TARGET={TARGET}
+      -D CMAKE_ASM_COMPILER_TARGET={TARGET}
+      -D CMAKE_SYSTEM_NAME=Popcorn
+      -D COMPILER_RT_BUILD_BUILTINS=ON
+      -D COMPILER_RT_BUILD_LIBFUZZER=OFF
+      -D COMPILER_RT_BUILD_MEMPROF=OFF
+      -D COMPILER_RT_BUILD_PROFILE=OFF
+      -D COMPILER_RT_BUILD_SANITIZERS=OFF
+      -D COMPILER_RT_BUILD_XRAY=OFF
+      -D COMPILER_RT_DEFAULT_TARGET_ONLY=ON
+      -D CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+      {SOURCES}/compiler-rt/lib/builtins
+    build:
+      - cmake --build .
+    install:
+      - DESTDIR={SYSROOT} cmake --install . --strip --prefix=/
+
+  - name: "@core/llvm-runtimes"
+    source: "@dev/llvm"
+    #binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/nightly-2026-05-20/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
+    license: 'Apache-2.0 WITH LLVM-exception'
+    author:
+      - 'LLVM Project'
+      - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
+    maintainer:
+      - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
+    build-depends:
+      - "@dev/llvm"
+    depends:
+      - "@core/compiler-rt-builtins"
+      - "@core/libc"
+    features:
+      - cxx:
+        - exceptions
+        - rtti
+      - compiler-rt:
+        - sanitizers
+        - profile
+    configure: >
+      cmake
+      -G Ninja
+      -B .
+      -D CMAKE_BUILD_TYPE=RelWithDebInfo
+      -D CMAKE_C_COMPILER=clang
+      -D CMAKE_CXX_COMPILER=clang++
+      -D CMAKE_C_COMPILER_TARGET={TARGET}
+      -D CMAKE_CXX_COMPILER_TARGET={TARGET}
+      -D CMAKE_SYSTEM_NAME=Popcorn
+      -D CMAKE_SYSROOT={BASE_SYSROOT}
+      -D LLVM_ENABLE_RUNTIMES="libunwind;libcxxabi;libcxx;compiler-rt"
+      -D LIBCXX_ENABLE_EXCEPTIONS={FEAT:cxx-exceptions:ON}{NOFEAT:cxx-exceptions:OFF}
+      -D LIBCXX_ENABLE_RTTI={FEAT:cxx-rtti:ON}{NOFEAT:cxx-rtti:OFF}
+      -D LIBCXX_CXX_ABI=libcxxabi
+      -D LIBCXX_USE_COMPILER_RT=ON
+      -D LIBCXXABI_USE_COMPILER_RT=ON
+      -D LIBCXXABI_USE_LLVM_UNWINDER=ON
+      -D LIBUNWIND_USE_COMPILER_RT=ON
+      -D COMPILER_RT_BUILD_BUILTINS=OFF
+      -D COMPILER_RT_BUILD_SANITIZERS={FEAT:compiler-rt-sanitizers:ON}{NOFEAT:compiler-rt-sanitizers:OFF}
+      -D COMPILER_RT_BUILD_PROFILE={FEAT:compiler-rt-profile:ON}{NOFEAT:compiler-rt-profile:OFF}
+      {SOURCES}/runtimes
+    build:
+      - cmake --build .
     install:
       - DESTDIR={SYSROOT} cmake --install . --strip --prefix=/
