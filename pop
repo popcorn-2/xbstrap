@@ -347,14 +347,13 @@ class Builder:
         current_base = self.host_sysroot if is_build_dep else self.base_sysroot
         pkg_staging = self.get_staging_dir(pkg, is_build_dep)
         target_triple = self.get_target_triple(is_build_dep)
-        host_triple = self.get_host_triple()
 
         cmd = cmd.replace('{BASE_SYSROOT}', str(current_base))
         cmd = cmd.replace('{SYSROOT}', str(pkg_staging))
         cmd = cmd.replace('{TARGET}', target_triple)
         cmd = cmd.replace('{CONFIG}', str(self.config_dir))
         cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
-        cmd = cmd.replace('{HOST}', host_triple)
+        cmd = cmd.replace('{HOST}', self.host_triple)
         
         # Validate dependency macros dynamically
         active_build_deps = self.get_resolved_dep_names(pkg.build_depends, requested_features)
