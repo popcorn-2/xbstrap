@@ -32,7 +32,7 @@ packages:
       - mkdir -p {BASE_SYSROOT}/efi/boot/
       - install {TARGET}/release/kernel.exec {BASE_SYSROOT}/efi/boot/kernel.exec
 
-  - name: bootloader
+  - name: "@core/bootloader"
     source: "@core/kernel"
     system: true
     build-depends:
