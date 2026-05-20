@@ -116,16 +116,13 @@ class Triple:
     
     def __repr__(self):
         return self.triple
-    
-    def _alt_arch(arch):
-        if arch == "x86_64":
-            return "amd64"
-        else:
-            return arch
 
     @property
     def arch_alt(self):
-        return self._alt_arch(self.arch)
+        if self.arch == "x86_64":
+            return "amd64"
+        else:
+            return self.arch
 
     @property
     def triple(self):
