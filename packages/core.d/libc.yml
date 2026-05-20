@@ -3,21 +3,33 @@ sources:
     git: 'https://github.com/popcorn-2/mlibc.git'
 
 packages:
-  - name: libc-headers
-    source: mlibc
+  - name: "@core/libc"
+    git: 'https://github.com/popcorn-2/mlibc.git'
+    features:
+      - headers
+      - lib
+      - posix
+    build-dep:
+      - "@dev/llvm"
+    depends:
+      - "{FEAT:lib:@core/compiler-rt-builtins}"
     configure: >
       meson
       setup
-      @@SOURCES@@
+      {SOURCES}
       -Ddefault_library=static
       -Dglibc_option=disabled
       -Dbsd_option=disabled
-      -Dposix_option=enabled
+      -Dposix_option={FEAT:posix:enabled}{NOFEAT:posix:disabled}
       -Dlibgcc_dependency=false
-      --prefix=/system
-      -Dheaders_only=true
+      --prefix=/
+      {NOFEAT:lib:-Dheaders_only=true}
+      {FEAT:lib:-Dheaders_only=false}
+      {NOFEAT:headers:-Dno_headers=true}
+      {FEAT:headers:-Dno_headers=false}
+      -Duse_freestnd_hdrs=enabled
       --cross-file=@@CONFIG@@/meson/popcorn.cross-file
-    install: DESTDIR=@@SYSROOT@@ ninja install
+    install: DESTDIR={SYSROOT} ninja install
   
   - name: libc
     source: mlibc

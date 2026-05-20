@@ -389,10 +389,14 @@ class Builder:
         for dep_req in pkg.build_depends:
             dep_req = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, dep_req)
             dep_req = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
+            if len(dep_req) == 0:
+                continue
             self.process(dep_req, is_build_dep=True, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
         for dep_req in pkg.depends:
             dep_req = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, dep_req)
             dep_req = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
+            if len(dep_req) == 0:
+                continue
             self.process(dep_req, is_build_dep=is_build_dep, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
 
         print(f"\n>>> Processing {name}")

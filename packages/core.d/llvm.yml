@@ -51,6 +51,8 @@ packages:
       - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
     build-depends:
       - "@dev/llvm"
+    depends:
+      - "@core/libc:headers,posix"
     configure: >
       cmake
       -G Ninja
