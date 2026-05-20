@@ -98,7 +98,7 @@ packages:
       - "@dev/llvm"
     depends:
       - "@core/compiler-rt-builtins"
-      - "@core/libc"
+      - "@core/libc:headers,posix,lib"
     features:
       - cxx:
         - exceptions
