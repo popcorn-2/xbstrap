@@ -575,6 +575,7 @@ def main():
     install_parser.add_argument('--list', help="File containing list of packages to install")
 
     pkg_parser = subparsers.add_parser('package', help="Build package from source and generate a binary tarball archive")
+    pkg_parser.add_argument('--as-build-dep', help="Package as if it was a build dependecy rather than for the target", action='store_true')
     pkg_parser.add_argument('package', help="Package target, e.g. @core/example:cxx")
     
     info_parser = subparsers.add_parser('info', help="Print parsed package information")
@@ -622,7 +623,7 @@ def main():
         builder.execute()
 
     elif args.command == 'package':
-        builder.plan_target(args.package)
+        builder.plan_target(args.package, args.as_build_dep)
         builder.execute(create_tarball=True, skip_triggers=True)
 
 if __name__ == '__main__':
