@@ -108,7 +108,7 @@ class Builder:
     def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False):
         self.registry = registry
         self.base_sysroot = Path(base_sysroot).resolve()
-        self.host_sysroot = Path.cwd() / "pop-host-sysroot"
+        self.host_sysroot = Path.cwd() / "pop-host-sysroot" if host_triple != target_triple else self.base_sysroot
         self.cache_dir = Path(cache_dir).resolve()
         self.host_triple = host_triple
         self.target_triple = target_triple
@@ -274,10 +274,7 @@ class Builder:
 
     def _queue_triggers(self, pkg, is_build_dep):
         for trigger_req in pkg.post_install:
-            if ':' in trigger_req:
-                t_pkg_name, t_name = trigger_req.rsplit(':', 1)
-            else:
-                t_pkg_name, t_name = trigger_req.rsplit('/', 1)
+            t_pkg_name, t_name = trigger_req.rsplit(':', 1)
             
             t_pkg = self.registry.get(t_pkg_name)
             
