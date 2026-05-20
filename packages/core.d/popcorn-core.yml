@@ -17,7 +17,7 @@ packages:
       -Z build-std-features=compiler-builtins-mem
       --
       -C linker={BINDEP:@dev/llvm}/bin/clang
-      -C link-args=--target={TRIPLE}
+      -C link-args=--target={TARGET}
       -C link-args=--sysroot={BASE_SYSROOT}
       -C link-args=-nostartfiles
       -C link-args=-Wl,-no-pie
