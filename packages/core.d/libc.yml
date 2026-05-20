@@ -5,6 +5,7 @@ sources:
 packages:
   - name: "@core/libc"
     git: 'https://github.com/popcorn-2/mlibc.git'
+    system: true
     features:
       - headers
       - lib
@@ -30,8 +31,8 @@ packages:
         -Duse_freestnd_hdrs=enabled \
         --cross-file=<(cat <<'EOF'
       [binaries]
-      c = ['{BINDEP:@dev/llvm}/bin/clang', '--target={TARGET}']
-      cpp = ['{BINDEP:@dev/llvm}/bin/clang++', '--target={TARGET}']
+      c = ['{BINDEP:@dev/llvm}/bin/clang', '--target={TARGET}', '--sysroot={BASE_SYSROOT}']
+      cpp = ['{BINDEP:@dev/llvm}/bin/clang++', '--target={TARGET}', '--sysroot={BASE_SYSROOT}']
       llvm-config = ['{BINDEP:@dev/llvm}/bin/llvm-config']
       ar = ['{BINDEP:@dev/llvm}/bin/llvm-ar']
       ranlib = ['{BINDEP:@dev/llvm}/bin/llvm-ranlib']
