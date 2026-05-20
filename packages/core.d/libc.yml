@@ -8,7 +8,7 @@ packages:
       - lib
       - posix
     build-depends:
-      - "@dev/llvm"
+      - "@dev/llvm:clang,lld"
     depends:
       - "{FEAT:lib:@core/compiler-rt-builtins}"
     configure: |
