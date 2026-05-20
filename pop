@@ -392,7 +392,7 @@ def main():
     registry.load_manifest(args.manifest)
 
     if args.command == 'info':
-        pkg = registry.get(args.target)
+        pkg = registry.get(args.target.split(":")[0])
         print(f"Package: {pkg.name}")
         print(f"Host Triple: {host_triple}")
         print(f"Target Triple: {target_triple}")
