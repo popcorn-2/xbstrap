@@ -276,7 +276,7 @@ class Builder:
         print(f"    {prefix}{cmd}")
         if not self.dry_run:
             cwd.mkdir(parents=True, exist_ok=True)
-            subprocess.run(cmd, cwd=cwd, shell=True, check=True)
+            subprocess.run(cmd, cwd=cwd, shell=True, check=True, executable='/bin/bash')
 
     def fetch(self, pkg):
         if not self.dry_run:
