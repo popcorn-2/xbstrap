@@ -10,7 +10,7 @@ packages:
       - headers
       - lib
       - posix
-    build-dep:
+    build-depends:
       - "@dev/llvm"
     depends:
       - "{FEAT:lib:@core/compiler-rt-builtins}"
