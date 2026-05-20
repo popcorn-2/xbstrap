@@ -233,7 +233,6 @@ class Builder:
         pkg_sysroot = self.get_sysroot(pkg, is_build_dep)
         target_triple = self.get_target_triple(is_build_dep)
 
-        cmd = cmd.replace('\n', ' ')
         cmd = cmd.replace('{SYSROOT}', str(pkg_sysroot))
         cmd = cmd.replace('{TARGET}', target_triple)
         cmd = cmd.replace('{CONFIG}', str(self.config_dir))
@@ -243,7 +242,6 @@ class Builder:
         def repl_bindep(match):
             dep_name = match.group(1)
             dep_pkg = self.registry.get(dep_name)
-            # If the dep is listed in build_depends, it uses the host sysroot context.
             dep_is_build = True if dep_name in pkg.build_depends else is_build_dep
             return str(self.get_sysroot(dep_pkg, dep_is_build))
 
@@ -268,8 +266,7 @@ class Builder:
         cmd = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, cmd)
         cmd = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, cmd)
         
-        cmd = re.sub(r'\s+', ' ', cmd).strip()
-        return cmd
+        return cmd.strip()
 
     def run_command(self, cmd, cwd):
         prefix = "[DRY-RUN] " if self.dry_run else "[EXEC] "
