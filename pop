@@ -479,7 +479,7 @@ class Builder:
     def execute_single(self, pkg, is_build_dep, requested_features, create_tarball=False, skip_triggers=False):
         print(f"\n>>> Processing {pkg.name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
 
-        if not self.force_source:
+        if not self.force_source and not create_tarball:
             cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
             if cached_path:
                 print(f"  -> Found suitable cached binary: {cached_path.name}")
