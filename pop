@@ -31,7 +31,7 @@ def get_host_triple():
 class Package:
     def __init__(self, data, manifest_dir):
         self.name = data.get('name')
-        self.system = data.get('system', False) # True means install to /system, False means /pkg/name
+        self.system = data.get('system', False)
         self.git = data.get('git')
         self.source = data.get('source')
         self.binary_url = data.get('binary-url')
@@ -41,23 +41,9 @@ class Package:
         
         self.available_features = self._parse_features(data.get('features', []))
         
-        build_depends = data.get('build-depends', [])
-        self.build_depends = {}
-        for dep in build_depends:
-            split = dep.split(":")
-            self.build_depends[split[0]] = []
-            if len(split) > 1:
-                features = split[1].split(",")
-                self.build_depends[split[0]] = features
-
-        depends = data.get('depends', [])
-        self.depends = {}
-        for dep in depends:
-            split = dep.split(":")
-            self.depends[split[0]] = []
-            if len(split) > 1:
-                features = split[1].split(",")
-                self.depends[split[0]] = features
+        # Keep as raw lists. We evaluate FEAT macros dynamically during the build.
+        self.build_depends = data.get('build-depends', [])
+        self.depends = data.get('depends', [])
         
         self.configure = data.get('configure', [])
         self.build = data.get('build', [])
@@ -138,7 +124,7 @@ class Builder:
         self.github_assets_cache = {}
 
     def parse_pkg_req(self, req_str):
-        parts = req_str.split(':')
+        parts = req_str.split(':', 1)
         name = parts[0]
         features = set(parts[1].split(',')) if len(parts) > 1 else set()
         return name, features
@@ -248,6 +234,25 @@ class Builder:
             
         return None, None
 
+    def get_resolved_dep_names(self, raw_deps, requested_features):
+        """Resolves FEAT macros to return a set of active base package names."""
+        names = set()
+        for dep in raw_deps:
+            def repl_feat(match):
+                feat, val = match.groups()
+                return val if feat in requested_features else ""
+            def repl_nofeat(match):
+                feat, val = match.groups()
+                return val if feat not in requested_features else ""
+                
+            d = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep)
+            d = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, d)
+            d = d.strip()
+            if d:
+                # Extracts '@core/pkg' from '@core/pkg:cxx'
+                names.add(d.split(':', 1)[0])
+        return names
+
     def expand_command(self, cmd, pkg, is_build_dep, requested_features):
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
@@ -257,22 +262,36 @@ class Builder:
         target_triple = self.get_target_triple(is_build_dep)
 
         cmd = cmd.replace('{BASE_SYSROOT}', str(current_base))
-        cmd = cmd.replace('{SYSROOT}', str(pkg_staging)) # SYSROOT isolates into the staging directory during build
+        cmd = cmd.replace('{SYSROOT}', str(pkg_staging))
         cmd = cmd.replace('{TARGET}', target_triple)
         cmd = cmd.replace('{CONFIG}', str(self.config_dir))
         cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
         
+        # Dynamically resolve dependencies to validate macros
+        active_build_deps = self.get_resolved_dep_names(pkg.build_depends, requested_features)
+        active_run_deps = self.get_resolved_dep_names(pkg.depends, requested_features)
+        
+        def validate_dep(dep_name):
+            if dep_name not in active_build_deps and dep_name not in active_run_deps:
+                print(f"\n[!] ERROR: Package '{pkg.name}' referenced '{dep_name}' but it is not an active dependency.")
+                sys.exit(1)
+
         def repl_bindep(match):
             dep_name = match.group(1)
+            validate_dep(dep_name)
             dep_pkg = self.registry.get(dep_name)
-            dep_is_build = True if dep_name in pkg.build_depends else is_build_dep
-            return str(self.get_final_sysroot(dep_pkg, dep_is_build)) # BINDEP accurately points to final /system or /pkg destination
+            dep_is_build = True if dep_name in active_build_deps else is_build_dep
+            return str(self.get_final_sysroot(dep_pkg, dep_is_build))
 
         def repl_builddep(match):
-            return str(self.registry.get(match.group(1)).build_dir)
+            dep_name = match.group(1)
+            validate_dep(dep_name)
+            return str(self.registry.get(dep_name).build_dir)
 
         def repl_srcdep(match):
-            return str(self.registry.get(match.group(1)).source_dir)
+            dep_name = match.group(1)
+            validate_dep(dep_name)
+            return str(self.registry.get(dep_name).source_dir)
 
         cmd = re.sub(r'\{BINDEP:([^}]+)\}', repl_bindep, cmd)
         cmd = re.sub(r'\{BUILDDEP:([^}]+)\}', repl_builddep, cmd)
@@ -397,38 +416,23 @@ class Builder:
 
         print(f"\n>>> Resolving {name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
 
-        def repl_feat(match):
-            feat, val = match.groups()
-            return val if feat in requested_features else ""
-            
-        def repl_nofeat(match):
-            feat, val = match.groups()
-            return val if feat not in requested_features else ""
+        def resolve_dep_str(dep_req):
+            def repl_feat(match):
+                feat, val = match.groups()
+                return val if feat in requested_features else ""
+            def repl_nofeat(match):
+                feat, val = match.groups()
+                return val if feat not in requested_features else ""
+                
+            d = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
+            d = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, d)
+            return d.strip()
 
-        # 1. Resolve Dependencies
-        if from_source:
-            for (name, feats) in pkg.build_depends.items():
-                dep_req = name
-                if len(feats) > 0:
-                    dep_req += ":"
-                    dep_req += ",".join(feats)
-                dep_req = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, dep_req)
-                dep_req = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
-                if len(dep_req) == 0:
-                    continue
-                self.process(dep_req, is_build_dep=True, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
-        for (name, feats) in pkg.depends.items():
-            dep_req = name
-            if len(feats) > 0:
-                dep_req += ":"
-                dep_req += ",".join(feats)
-            dep_req = re.sub(r'\{NOFEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_nofeat, dep_req)
-            dep_req = re.sub(r'\{FEAT:([a-zA-Z0-9_-]+):([^}]*)\}', repl_feat, dep_req)
-            if len(dep_req) == 0:
-                continue
-            self.process(dep_req, is_build_dep=is_build_dep, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
-
-        print(f"\n>>> Processing {name}")
+        # 1. Resolve Runtime Dependencies
+        for dep_req in pkg.depends:
+            resolved_req = resolve_dep_str(dep_req)
+            if resolved_req:
+                self.process(resolved_req, is_build_dep=is_build_dep, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
 
         # 2. Check Binary Cache and Download
         if not from_source:
@@ -454,7 +458,13 @@ class Builder:
             
             print(f"  -> No binary cache available for {name} with features {requested_features}. Falling back to source build.")
 
-        # 3. Source Build Pipeline
+        # 3. Resolve Build Dependencies (ONLY if we are actually building from source)
+        for dep_req in pkg.build_depends:
+            resolved_req = resolve_dep_str(dep_req)
+            if resolved_req:
+                self.process(resolved_req, is_build_dep=True, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
+
+        # 4. Source Build Pipeline
         if not self.dry_run:
             staging_dir = self.get_staging_dir(pkg, is_build_dep)
             if staging_dir.exists():
@@ -477,7 +487,7 @@ class Builder:
                 cmd = self.expand_command(step, pkg, is_build_dep, requested_features)
                 self.run_command(cmd, pkg.build_dir)
 
-        # 4. Post-Build Actions
+        # 5. Post-Build Actions
         if create_tarball:
             self.create_archive(pkg, is_build_dep, requested_features)
 
