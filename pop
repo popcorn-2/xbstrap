@@ -106,7 +106,7 @@ class Registry:
         return self.packages[name]
 
 class Builder:
-    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False):
+    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, force_source=False):
         self.registry = registry
         self.base_sysroot = Path(base_sysroot).resolve()
         self.host_sysroot = Path.cwd() / "pop-host-sysroot" if host_triple != target_triple else self.base_sysroot
@@ -115,6 +115,7 @@ class Builder:
         self.target_triple = target_triple
         self.config_dir = Path(config_dir).resolve()
         self.dry_run = dry_run
+        self.force_source = force_source
         
         self.built_packages = set()
         self.queued_triggers = set()
@@ -373,9 +374,9 @@ class Builder:
 
         # 1. Resolve Dependencies
         for dep_req in pkg.build_depends:
-            self.process(dep_req, is_build_dep=True, from_source=from_source, create_tarball=False, skip_triggers=skip_triggers)
+            self.process(dep_req, is_build_dep=True, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
         for dep_req in pkg.depends:
-            self.process(dep_req, is_build_dep=is_build_dep, from_source=from_source, create_tarball=False, skip_triggers=skip_triggers)
+            self.process(dep_req, is_build_dep=is_build_dep, from_source=self.force_source, create_tarball=False, skip_triggers=skip_triggers)
 
         print(f"\n>>> Processing {name}")
 
@@ -493,7 +494,7 @@ def main():
         }, sort_keys=False))
         sys.exit(0)
 
-    builder = Builder(registry, args.sysroot, args.cache_dir, host_triple, target_triple, args.config, args.dry_run)
+    builder = Builder(registry, args.sysroot, args.cache_dir, host_triple, target_triple, args.config, args.dry_run, args.from_source)
 
     if args.command == 'install':
         if args.list:
