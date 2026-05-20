@@ -1,17 +1,54 @@
-sources:
-  - name: rust
-    git: 'https://github.com/popcorn-2/rust.git'
-    depth: 50 # we need at least one upstream commit
-    recursive: false
-
 packages:
   - name: "@dev/rustc"
     git: 'https://github.com/popcorn-2/rust.git'
     build-depends:
-      - "@dev/llvm:clang,lld,compiler-rt,compiler-rt-builtins,unwind"
+      - "@dev/llvm:clang,lld"
+    configure: |
+      cat <<'EOF' > config.toml
+      profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
+      change-id = 154587
+
+      [llvm]
+      download-ci-llvm = true
+
+      [rust]
+      channel = "nightly"
+      codegen-tests = false
+      lld = true
+
+      [build]
+      host = ["{HOST}"]
+      target = ["x86_64-unknown-popcorn", "{HOST}"] # we don't bother building the uefi target since it's only used by one crate and we can use build-std instead
+      description = "Popcorn2"
+      docs = false
+      compiler-docs = false
+      extended = true
+      tools = [
+              "cargo",
+              "rustdoc",
+              #"miri",
+              #"cargo-miri"
+      ]
+
+      [dist]
+      compression-formats = ["gz"]
+
+      [install]
+      prefix = "{SYSROOT}"
+      sysconfdir = "{SYSROOT}/etc"
+
+      [target.x86_64-unknown-popcorn]
+      cc = "{BINDEP:@dev/llvm}/bin/clang"
+      cxx = "{BINDEP:@dev/llvm}/bin/clang++"
+      ar = "{BINDEP:@dev/llvm}/bin/llvm-ar"
+      ranlib = "{BINDEP:@dev/llvm}/bin/llvm-ranlib"
+      linker =  "{BINDEP:@dev/llvm}/bin/clang"
+      llvm-config = "{BINDEP:@dev/llvm}/bin/llvm-config"
+      crt-static = true
+      EOF
     build:
-      - '@@SOURCES@@/x.py build --config @@CONFIG@@/rust/bootstrap.toml'
-      - '@@SOURCES@@/x.py dist rust-src --config @@CONFIG@@/rust/bootstrap.toml' # we need this for build-std
+      - '{SOURCES}/x.py build --config config.toml'
+      - '{SOURCES}/x.py dist rust-src --config config.toml' # we need this for build-std
     install:
-      - '@@SOURCES@@/x.py install --config @@CONFIG@@/rust/bootstrap.toml'
-      - 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C @@TOOLCHAIN@@/system/'
+      - '{SOURCES}/x.py install --config config.toml'
+      - 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C {SYSROOT}'
