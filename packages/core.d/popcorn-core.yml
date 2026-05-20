@@ -1,47 +1,27 @@
-sources:
-  - name: popcorn-core
-    git: 'https://github.com/popcorn-2/popcorn-2.git'
-
 packages:
-  - name: bootloader
-    source: popcorn-core
-    require-tools:
-      - rust
+  - name: "@core/kernel"
+    git: 'https://github.com/popcorn-2/popcorn-2.git'
+    system: true
+    build-depends:
+      - "@dev/rustc:cargo"
+      - "@dev/llvm:clang,lld"
     build: >
-      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc
-      @@TOOLCHAIN@@/system/bin/cargo build
-      -p bootloader
-      --target @@ARCH@@-unknown-uefi
-      --target-dir .
-      --manifest-path @@SOURCES@@/Cargo.toml
-      --release
-      -Z build-std=core,alloc
-    install:
-      - mkdir -p @@SYSROOT@@/efi/EFI/boot/
-      - install @@ARCH@@-unknown-uefi/release/bootloader.efi @@SYSROOT@@/efi/EFI/boot/bootx64.efi
-
-  - name: kernel
-    source: popcorn-core
-    require-tools:
-      - rust
-      - llvm
-    build: >
-      env RUSTC=@@TOOLCHAIN@@/system/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
-      @@TOOLCHAIN@@/system/bin/cargo rustc
+      env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
+      {BINDEP:@dev/rustc}/bin/cargo rustc
       -p kernel
-      --target @@TRIPLE@@
+      --target {TARGET}
       --target-dir .
-      --manifest-path @@SOURCES@@/Cargo.toml
+      --manifest-path {SOURCES}/Cargo.toml
       --release
       -Z build-std=compiler_builtins,core,alloc
       -Z build-std-features=compiler-builtins-mem
       --
-      -C linker=@@TOOLCHAIN@@/system/bin/clang
-      -C link-args=--target=@@TRIPLE@@
-      -C link-args=--sysroot=@@SYSROOT@@
+      -C linker={BINDEP:@dev/llvm}/bin/clang
+      -C link-args=--target={TRIPLE}
+      -C link-args=--sysroot={BASE_SYSROOT}
       -C link-args=-nostartfiles
       -C link-args=-Wl,-no-pie
-      -C link-args=-Wl,-T@@SOURCES@@/kernel/src/hal/arch/@@ARCH_ALT@@/linker.ld
+      -C link-args=-Wl,-T{SOURCES}/kernel/src/hal/arch/{ARCH_ALT}/linker.ld
       -C code-model=kernel
       -C relocation-model=static
       -C panic=unwind
@@ -49,5 +29,23 @@ packages:
       -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2
       -Z tls-model=local-exec
     install:
-      - mkdir -p @@SYSROOT@@/efi/boot/
-      - install @@TRIPLE@@/release/kernel.exec @@SYSROOT@@/efi/boot/kernel.exec
+      - mkdir -p {BASE_SYSROOT}/efi/boot/
+      - install {TARGET}/release/kernel.exec {BASE_SYSROOT}/efi/boot/kernel.exec
+
+  - name: bootloader
+    source: "@core/kernel"
+    system: true
+    build-depends:
+      - "@dev/rustc:cargo"
+    build: >
+      env RUSTC={BINDEP:@dev/rustc}/bin/rustc
+      {BINDEP:@dev/rustc}/bin/cargo build
+      -p bootloader
+      --target {ARCH}-unknown-uefi
+      --target-dir .
+      --manifest-path {SOURCES}/Cargo.toml
+      --release
+      -Z build-std=core,alloc
+    install:
+      - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
+      - install {ARCH}-unknown-uefi/release/bootloader.efi {BASE_SYSROOT}/efi/EFI/boot/bootx64.efi

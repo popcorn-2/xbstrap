@@ -3,6 +3,11 @@ packages:
     git: 'https://github.com/popcorn-2/rust.git'
     build-depends:
       - "@dev/llvm:clang,lld"
+    features:
+      - cargo
+      - rustdoc
+      - miri
+      - cargo-miri
     configure: |
       cat <<'EOF' > config.toml
       profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
@@ -24,10 +29,10 @@ packages:
       compiler-docs = false
       extended = true
       tools = [
-              "cargo",
-              "rustdoc",
-              #"miri",
-              #"cargo-miri"
+              {FEAT:cargo:"cargo",}
+              {FEAT:rustdoc:"rustdoc",}
+              #{FEAT:miri:"miri",}
+              #{FEAT:cargo-miri:"cargo-miri",}
       ]
 
       [dist]
