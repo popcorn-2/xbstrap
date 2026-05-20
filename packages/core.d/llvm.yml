@@ -1,7 +1,7 @@
 packages:
   - name: "@dev/llvm"
     git: 'https://github.com/popcorn-2/llvm-project.git'
-    binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/latest/{SAFE_NAME}-{FEATURES}-{TARGET}.tar.gz'
+    binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/nightly-2026-05-20/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
     license: 'Apache-2.0 WITH LLVM-exception'
     author:
       - 'LLVM Project'

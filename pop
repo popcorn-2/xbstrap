@@ -139,10 +139,11 @@ class Builder:
 
     def expand_url(self, url, pkg, is_build_dep, requested_features):
         target_triple = self.get_target_triple(is_build_dep)
+        feat_suffix = ("-" + "-".join(sorted(requested_features))) if requested_features else ""
         url = url.replace('{NAME}', pkg.name)
         url = url.replace('{SAFE_NAME}', pkg.safe_name)
         url = url.replace('{TARGET}', target_triple)
-        url = url.replace('{FEATURES}', requested_features)
+        url = url.replace('{FEATURES}', feat_suffix)
         return url
 
     def expand_command(self, cmd, pkg, is_build_dep, requested_features):
