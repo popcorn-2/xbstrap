@@ -51,7 +51,7 @@ packages:
     maintainer:
       - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
     build-depends:
-      - "@dev/llvm"
+      - "@dev/llvm:clang,lld"
     depends:
       - "@core/libc:headers,posix"
     configure: >
@@ -95,7 +95,7 @@ packages:
     maintainer:
       - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
     build-depends:
-      - "@dev/llvm"
+      - "@dev/llvm:clang,lld"
     depends:
       - "@core/compiler-rt-builtins"
       - "@core/libc:headers,posix,lib"
@@ -113,8 +113,13 @@ packages:
       -D CMAKE_BUILD_TYPE=RelWithDebInfo
       -D CMAKE_C_COMPILER={BINDEP:@dev/llvm}/bin/clang
       -D CMAKE_CXX_COMPILER={BINDEP:@dev/llvm}/bin/clang++
+      -D CMAKE_ASM_COMPILER={BINDEP:@dev/llvm}/bin/clang
+      -D CMAKE_AR={BINDEP:@dev/llvm}/bin/llvm-ar
+      -D CMAKE_NM={BINDEP:@dev/llvm}/bin/llvm-nm
+      -D CMAKE_RANLIB={BINDEP:@dev/llvm}/bin/llvm-ranlib
       -D CMAKE_C_COMPILER_TARGET={TARGET}
       -D CMAKE_CXX_COMPILER_TARGET={TARGET}
+      -D CMAKE_ASM_COMPILER_TARGET={TARGET}
       -D CMAKE_SYSTEM_NAME=Popcorn
       -D CMAKE_SYSROOT={BASE_SYSROOT}
       -D LLVM_ENABLE_RUNTIMES="libunwind;libcxxabi;libcxx;compiler-rt"
@@ -128,6 +133,8 @@ packages:
       -D COMPILER_RT_BUILD_BUILTINS=OFF
       -D COMPILER_RT_BUILD_SANITIZERS={FEAT:compiler-rt-sanitizers:ON}{NOFEAT:compiler-rt-sanitizers:OFF}
       -D COMPILER_RT_BUILD_PROFILE={FEAT:compiler-rt-profile:ON}{NOFEAT:compiler-rt-profile:OFF}
+      -D COMPILER_RT_DEFAULT_TARGET_ONLY=ON
+      -D CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
       {SOURCES}/runtimes
     build:
       - cmake --build .
