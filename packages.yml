@@ -7,7 +7,7 @@ packages:
     depends:
       - "@core/libc:posix,lib,headers"
       - "@core/kernel"
-      # - "@core/bootloader"
+      - "@core/bootloader"
       # - "@core/file-server"
       # - "@core/devman"
 
