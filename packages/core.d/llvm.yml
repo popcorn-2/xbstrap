@@ -36,6 +36,6 @@ packages:
       -D LLVM_DISTRIBUTION_COMPONENTS="{FEAT:clang:clang;LTO;}{FEAT:lld:lld;}dsymutil;llvm-cov;llvm-dwarfdump;llvm-profdata;llvm-objdump;llvm-nm;llvm-size;llvm-cxxfilt;llvm-config;llvm-ar;llvm-ranlib"
       {SOURCES}/llvm
     build:
-      - ninja
+      - cmake --build . --target distribution
     install:
-      - DESTDIR={SYSROOT} ninja install-distribution-stripped
+      - DESTDIR={SYSROOT} cmake --install . --strip --prefix=/
