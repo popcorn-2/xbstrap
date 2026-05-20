@@ -374,14 +374,14 @@ def main():
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     install_parser = subparsers.add_parser('install', help="Install a package")
-    install_parser.add_argument('target', nargs='?', help="Package target, e.g. @core/example:cxx")
+    install_parser.add_argument('package', nargs='?', help="Package target, e.g. @core/example:cxx")
     install_parser.add_argument('--list', help="File containing list of packages to install")
 
     pkg_parser = subparsers.add_parser('package', help="Build package from source and generate a binary tarball archive")
-    pkg_parser.add_argument('target', help="Package target, e.g. @core/example:cxx")
+    pkg_parser.add_argument('package', help="Package target, e.g. @core/example:cxx")
     
     info_parser = subparsers.add_parser('info', help="Print parsed package information")
-    info_parser.add_argument('target', help="Package name to inspect")
+    info_parser.add_argument('package', help="Package name to inspect")
 
     args = parser.parse_args()
 
@@ -392,7 +392,7 @@ def main():
     registry.load_manifest(args.manifest)
 
     if args.command == 'info':
-        pkg = registry.get(args.target.split(":")[0])
+        pkg = registry.get(args.package.split(":")[0])
         print(f"Package: {pkg.name}")
         print(f"Host Triple: {host_triple}")
         print(f"Target Triple: {target_triple}")
@@ -413,19 +413,19 @@ def main():
         if args.list:
             with open(args.list, 'r') as f:
                 for line in f:
-                    target = line.strip()
-                    if target and not target.startswith('#'):
-                        builder.process(target, from_source=args.from_source)
-        elif args.target:
-            builder.process(args.target, from_source=args.from_source)
+                    package = line.strip()
+                    if package and not package.startswith('#'):
+                        builder.process(package, from_source=args.from_source)
+        elif args.package:
+            builder.process(args.package, from_source=args.from_source)
         else:
-            print("Error: Must provide a target or a --list")
+            print("Error: Must provide a package or a --list")
             sys.exit(1)
             
         builder.execute_triggers()
 
     elif args.command == 'package':
-        builder.process(args.target, from_source=True, create_tarball=True, skip_triggers=True)
+        builder.process(args.package, from_source=True, create_tarball=True, skip_triggers=True)
 
 if __name__ == '__main__':
     main()
