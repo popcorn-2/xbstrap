@@ -21,7 +21,7 @@ packages:
       -C link-args=--sysroot={BASE_SYSROOT}
       -C link-args=-nostartfiles
       -C link-args=-Wl,-no-pie
-      -C link-args=-Wl,-T{SOURCES}/kernel/src/hal/arch/{ARCH_ALT}/linker.ld
+      -C link-args=-Wl,-T{SOURCES}/kernel/src/hal/arch/{TARGET:arch_alt}/linker.ld
       -C code-model=kernel
       -C relocation-model=static
       -C panic=unwind
@@ -41,11 +41,11 @@ packages:
       env RUSTC={BINDEP:@dev/rustc}/bin/rustc
       {BINDEP:@dev/rustc}/bin/cargo build
       -p bootloader
-      --target {ARCH}-unknown-uefi
+      --target {TARGET:arch}-unknown-uefi
       --target-dir .
       --manifest-path {SOURCES}/Cargo.toml
       --release
       -Z build-std=core,alloc
     install:
       - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
-      - install {ARCH}-unknown-uefi/release/bootloader.efi {BASE_SYSROOT}/efi/EFI/boot/bootx64.efi
+      - install {TARGET:arch}-unknown-uefi/release/bootloader.efi {BASE_SYSROOT}/efi/EFI/boot/bootx64.efi
