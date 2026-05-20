@@ -148,15 +148,12 @@ class Builder:
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
             
-        current_base = self.host_sysroot if is_build_dep else self.base_sysroot
         pkg_sysroot = self.get_sysroot(pkg, is_build_dep)
         target_triple = self.get_target_triple(is_build_dep)
 
         # Standard Variable Replacements
         cmd = cmd.replace('\n', ' ')
-        cmd = cmd.replace('{BASE_SYSROOT}', str(current_base))
         cmd = cmd.replace('{SYSROOT}', str(pkg_sysroot))
-        cmd = cmd.replace('{SYSROOT:host}', str(self.host_sysroot))
         cmd = cmd.replace('{TARGET}', target_triple)
         cmd = cmd.replace('{CONFIG}', str(self.config_dir))
         cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
@@ -302,9 +299,9 @@ class Builder:
 
         # 1. Resolve Dependencies (DFS)
         for dep_req in pkg.build_depends:
-            self.process(dep_req, is_build_dep=True, from_source=from_source, create_tarball=create_tarball, skip_triggers=skip_triggers)
+            self.process(dep_req, is_build_dep=True, from_source=from_source, create_tarball=False, skip_triggers=skip_triggers)
         for dep_req in pkg.depends:
-            self.process(dep_req, is_build_dep=is_build_dep, from_source=from_source, create_tarball=create_tarball, skip_triggers=skip_triggers)
+            self.process(dep_req, is_build_dep=is_build_dep, from_source=from_source, create_tarball=False, skip_triggers=skip_triggers)
 
         print(f"\n>>> Processing {name}")
 
