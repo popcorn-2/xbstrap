@@ -8,6 +8,7 @@ packages:
       - rustdoc
       - miri
       - cargo-miri
+      - docs
     configure: |
       cat <<'EOF' > config.toml
       profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
@@ -25,10 +26,11 @@ packages:
       host = ["{HOST}"]
       target = ["x86_64-unknown-popcorn", "{HOST}"] # we don't bother building the uefi target since it's only used by one crate and we can use build-std instead
       description = "Popcorn2"
-      docs = false
+      docs = {NOFEAT:docs:false}{FEAT:docs:true}
       compiler-docs = false
       extended = true
       tools = [
+              "src",
               {FEAT:cargo:"cargo",}
               {FEAT:rustdoc:"rustdoc",}
               #{FEAT:miri:"miri",}
@@ -53,7 +55,7 @@ packages:
       EOF
     build:
       - '{SOURCES}/x.py build --config config.toml'
-      - '{SOURCES}/x.py dist rust-src --config config.toml' # we need this for build-std
+      #- '{SOURCES}/x.py dist rust-src --config config.toml' # we need this for build-std
     install:
       - '{SOURCES}/x.py install --config config.toml'
-      - 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C {SYSROOT}'
+      #- 'tar -xf build/dist/rust-src-nightly.tar.gz --strip-components=2 -C {SYSROOT}'
