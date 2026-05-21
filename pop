@@ -570,7 +570,7 @@ class Builder:
             pkg = self.registry.get(name)
             features = self.planned_features[key]
             
-            is_target = (name in target_keys and not is_build_dep)
+            is_target = name in target_keys
             do_tarball = create_tarball and is_target
             
             self.execute_single(pkg, is_build_dep, features, do_tarball, skip_triggers)
