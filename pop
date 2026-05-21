@@ -176,8 +176,8 @@ class Builder:
         return names
 
     def get_staging_dir(self, pkg, is_build_dep):
-        base = self.host_sysroot if is_build_dep else self.base_sysroot
-        return base / "staging" / pkg.safe_name
+        ty = "host" if is_build_dep else "target"
+        return Path.cwd() / "staging" / ty / pkg.safe_name
 
     def get_final_sysroot(self, pkg, is_build_dep):
         base = self.host_sysroot if is_build_dep else self.base_sysroot
