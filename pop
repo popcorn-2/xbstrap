@@ -113,6 +113,7 @@ class Triple:
         self.arch = split[0]
         self.vendor = split[1]
         self.os = split[2]
+        self.abi = split[3]
     
     def __repr__(self):
         return self.triple
@@ -126,7 +127,10 @@ class Triple:
 
     @property
     def triple(self):
-        return f"{self.arch}-{self.vendor}-{self.os}"
+        if self.abi is not None:
+            return f"{self.arch}-{self.vendor}-{self.os}-{self.abi}"
+        else:
+            return f"{self.arch}-{self.vendor}-{self.os}"
 
 class Builder:
     def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, force_source=False):
