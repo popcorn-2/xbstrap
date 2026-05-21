@@ -113,7 +113,7 @@ class Triple:
         self.arch = split[0]
         self.vendor = split[1]
         self.os = split[2]
-        self.abi = split[3]
+        self.abi = split[3] if 3 < len(split) else None
     
     def __repr__(self):
         return self.triple
