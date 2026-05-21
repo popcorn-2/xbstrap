@@ -36,9 +36,9 @@ packages:
       -D LLVM_DISTRIBUTION_COMPONENTS="{FEAT:clang:clang;LTO;}{FEAT:lld:lld;}dsymutil;llvm-cov;llvm-dwarfdump;llvm-profdata;llvm-objdump;llvm-nm;llvm-size;llvm-cxxfilt;llvm-config;llvm-ar;llvm-ranlib"
       {SOURCES}/llvm
     build:
-      - cmake --build .
+      - cmake --build . --target distribution
     install:
-      - DESTDIR={SYSROOT} cmake --install . --strip --prefix=/
+      - DESTDIR={SYSROOT} cmake --install . --component distribution --strip --prefix=/
 
   - name: "@core/compiler-rt-builtins"
     source: "@dev/llvm"
