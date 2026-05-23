@@ -8,6 +8,7 @@ packages:
       - rustdoc
       - clippy
       - docs
+      - src
     configure: |
       cat <<'EOF' > config.toml
       profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
@@ -29,7 +30,7 @@ packages:
       compiler-docs = false
       extended = true
       tools = [
-              "src",
+              {FEAT:src:"src",}
               {FEAT:cargo:"cargo",}
               {FEAT:rustdoc:"rustdoc",}
               {FEAT:clippy:"clippy",}

@@ -3,7 +3,7 @@ packages:
     git: 'https://github.com/popcorn-2/popcorn-2.git'
     system: true
     build-depends:
-      - "@dev/rustc:cargo"
+      - "@dev/rustc:cargo,src"
       - "@dev/llvm:clang,lld"
     commands:
       cargo: >
@@ -42,7 +42,7 @@ packages:
     source: "@core/kernel"
     system: true
     build-depends:
-      - "@dev/rustc:cargo"
+      - "@dev/rustc:cargo,src"
     build: >
       env RUSTC={BINDEP:@dev/rustc}/bin/rustc
       {BINDEP:@dev/rustc}/bin/cargo build
