@@ -718,15 +718,34 @@ def main():
         pkg_name, features = builder.parse_pkg_req(args.package)
         pkg = registry.get(pkg_name)
         
+        invalid_feats = features - pkg.available_features
+        if invalid_feats:
+            print(f"\n[!] ERROR: Package '{pkg_name}' does not provide requested features: {', '.join(invalid_feats)}")
+            sys.exit(1)
+
+        # 1. Resolve and install build and runtime dependencies
+        for dep in pkg.build_depends:
+            res = builder.resolve_dep_str(dep, features)
+            if res: builder.plan_target(res, is_build_dep=True)
+            
+        for dep in pkg.depends:
+            res = builder.resolve_dep_str(dep, features)
+            if res: builder.plan_target(res, is_build_dep=args.as_build_dep)
+            
+        if builder.initial_targets:
+            print(f"\n>>> Resolving and installing dependencies for {pkg.name}...")
+            builder.execute(skip_triggers=False)
+            
+        # 2. Fetch the target package sources and ensure build dir exists
+        builder.fetch(pkg)
+        pkg.build_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 3. Form and run the final command
         raw_cmd = args.cmd
         if args.cmd_args:
             raw_cmd += " " + " ".join(args.cmd_args)
             
         cmd = builder.expand_command(raw_cmd, pkg, args.as_build_dep, features)
-        
-        # Ensure sources are fetched and build dir exists
-        builder.fetch(pkg)
-        pkg.build_dir.mkdir(parents=True, exist_ok=True)
         
         print(f"\n>>> Running custom command for {pkg.name} in {pkg.build_dir}")
         builder.run_command(cmd, pkg.build_dir)
