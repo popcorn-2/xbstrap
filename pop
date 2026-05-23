@@ -59,7 +59,7 @@ class Package:
         self.manifest_dir = manifest_dir
         self.safe_name = self.name.replace('@', '').replace('/', '_')
         
-        self.source_dir = Path.cwd() / "pop-sources" / self.safe_name
+        self.source_dir = Path.cwd() / "sources" / self.safe_name
         self.build_dir = Path.cwd() / "build-workspaces" / self.safe_name
 
     def _parse_features(self, feature_list):
@@ -136,7 +136,7 @@ class Builder:
     def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, from_source=None, local_sources=None):
         self.registry = registry
         self.base_sysroot = Path(base_sysroot).resolve()
-        self.host_sysroot = Path.cwd() / "pop-host-sysroot" if host_triple != target_triple else self.base_sysroot
+        self.host_sysroot = Path.cwd() / "tools" if host_triple != target_triple else self.base_sysroot
         self.cache_dir = Path(cache_dir).resolve()
         self.host_triple = Triple(host_triple)
         self.target_triple = Triple(target_triple)
@@ -198,10 +198,12 @@ class Builder:
         return Path.cwd() / "staging" / ty / pkg.safe_name
 
     def get_final_sysroot(self, pkg, is_build_dep):
-        base = self.host_sysroot if is_build_dep else self.base_sysroot
-        if pkg.system:
-            return base / "system"
-        return base / "pkg" / pkg.name.lstrip('@')
+        if is_build_dep:
+            return self.host_sysroot
+        elif pkg.system:
+            return self.base_sysroot / "system"
+        else:
+            return self.base_sysroot / "pkg" / pkg.name.lstrip('@')
 
     def get_target_triple(self, is_build_dep):
         return self.host_triple if is_build_dep else self.target_triple
@@ -633,7 +635,7 @@ def main():
     parser.add_argument('--manifest', default='packages.yml', help="Root YAML manifest file")
     parser.add_argument('--config', default='./config', help="Path to config dir")
     parser.add_argument('--sysroot', default='/', help="Base target sysroot directory")
-    parser.add_argument('--cache-dir', default='./pop-cache', help="Directory to store/fetch pre-built package tarballs")
+    parser.add_argument('--cache-dir', default='./cache', help="Directory to store/fetch pre-built package tarballs")
     parser.add_argument('--target', help="Cross-compile target triple")
     parser.add_argument('--host', help="Host architecture triple")
     parser.add_argument('--dry-run', action='store_true', help="Print commands without executing them")
