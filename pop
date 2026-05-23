@@ -488,6 +488,10 @@ class Builder:
         elif pkg.source:
             source_pkg = self.registry.get(pkg.source)
             print(f"  -> Using source from {source_pkg.name}")
+            # Ensure the source we are relying on is also fetched!
+            if not source_pkg.source_dir.exists() and not self.dry_run:
+                self.fetch(source_pkg)
+            
             if not pkg.source_dir.exists() and not self.dry_run:
                 os.symlink(source_pkg.source_dir, pkg.source_dir)
 
