@@ -630,7 +630,7 @@ class Builder:
 def main():
     parser = argparse.ArgumentParser(description="Popcorn2 Package Manager & Bootstrap System")
     
-    parser.add_argument('--manifest', default='packages.yml', help="Root YAML manifest file")
+    parser.add_argument('--manifest', default=f"{os.path.dirname(__file__)}/packages.yml", help="Root YAML manifest file")
     parser.add_argument('--sysroot', default='/', help="Base target sysroot directory")
     parser.add_argument('--cache-dir', default='./cache', help="Directory to store/fetch pre-built package tarballs")
     parser.add_argument('--target', help="Cross-compile target triple")
