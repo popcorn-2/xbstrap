@@ -203,7 +203,7 @@ class Builder:
         return names
 
     def get_staging_dir(self, pkg, is_build_dep):
-        ty = "host" if is_build_dep else "target"
+        ty = "tools" if is_build_dep else "target"
         return Path.cwd() / "staging" / ty / pkg.safe_name
 
     def get_final_sysroot(self, pkg, is_build_dep):
