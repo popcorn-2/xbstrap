@@ -133,14 +133,13 @@ class Triple:
             return f"{self.arch}-{self.vendor}-{self.os}"
 
 class Builder:
-    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, from_source=None, local_sources=None):
+    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, dry_run=False, from_source=None, local_sources=None):
         self.registry = registry
         self.base_sysroot = Path(base_sysroot).resolve()
         self.host_sysroot = Path.cwd() / "tools" if host_triple != target_triple else self.base_sysroot
         self.cache_dir = Path(cache_dir).resolve()
         self.host_triple = Triple(host_triple)
         self.target_triple = Triple(target_triple)
-        self.config_dir = Path(config_dir).resolve()
         self.dry_run = dry_run
         self.from_source = from_source
         
@@ -401,7 +400,6 @@ class Builder:
         cmd = cmd.replace('{TARGET:vendor}', target_triple.vendor)
         cmd = cmd.replace('{TARGET:os}', target_triple.os)
         cmd = cmd.replace('{TARGET:arch_alt}', target_triple.arch_alt)
-        cmd = cmd.replace('{CONFIG}', str(self.config_dir))
         cmd = cmd.replace('{SOURCES}', str(pkg.source_dir))
         cmd = cmd.replace('{HOST}', self.host_triple.triple)
         cmd = cmd.replace('{HOST:arch}', self.host_triple.arch)
@@ -633,7 +631,6 @@ def main():
     parser = argparse.ArgumentParser(description="Popcorn2 Package Manager & Bootstrap System")
     
     parser.add_argument('--manifest', default='packages.yml', help="Root YAML manifest file")
-    parser.add_argument('--config', default='./config', help="Path to config dir")
     parser.add_argument('--sysroot', default='/', help="Base target sysroot directory")
     parser.add_argument('--cache-dir', default='./cache', help="Directory to store/fetch pre-built package tarballs")
     parser.add_argument('--target', help="Cross-compile target triple")
@@ -684,7 +681,6 @@ def main():
         args.cache_dir, 
         host_triple, 
         target_triple, 
-        args.config, 
         args.dry_run, 
         args.from_source, 
         args.local_source
