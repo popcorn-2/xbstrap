@@ -635,9 +635,10 @@ def main():
     parser.add_argument('--cache-dir', default='./cache', help="Directory to store/fetch pre-built package tarballs")
     parser.add_argument('--target', help="Cross-compile target triple")
     parser.add_argument('--host', help="Host architecture triple")
-    parser.add_argument('--dry-run', action='store_true', help="Print commands without executing them")
     parser.add_argument('--from-source', nargs='*', default=None, metavar='PKG', help="Force build from source (ignore binary caches). Pass package names to force specific ones, or omit arguments to force all.")
     parser.add_argument('--local-source', action='append', default=[], metavar='PKG=PATH', help="Override source directory for a package (format: pkg=path), e.g. @core/example=./my-src")
+    parser.add_argument('--dry-run', action='store_true', help="Print commands without executing them")
+    parser.add_argument('--as-build-dep', help="Build as if it was a build dependecy rather than for the target", action='store_true')
     
     subparsers = parser.add_subparsers(dest='command', required=True)
 
@@ -645,7 +646,6 @@ def main():
     install_parser.add_argument('package', help="Package target, e.g. @core/example:cxx", nargs="+")
 
     pkg_parser = subparsers.add_parser('package', help="Build package from source and generate a binary tarball archive")
-    pkg_parser.add_argument('--as-build-dep', help="Package as if it was a build dependecy rather than for the target", action='store_true')
     pkg_parser.add_argument('package', help="Package target, e.g. @core/example:cxx", nargs="+")
     
     info_parser = subparsers.add_parser('info', help="Print parsed package information")
@@ -688,7 +688,7 @@ def main():
 
     if args.command == 'install':
         for pkg in args.package:
-            builder.plan_target(pkg)
+            builder.plan_target(pkg, args.as_build_dep)
             
         builder.execute()
 
