@@ -5,13 +5,19 @@ packages:
     build-depends:
       - "@dev/rustc:cargo"
       - "@dev/llvm:clang,lld"
+    commands:
+      cargo: >
+        env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
+        {BINDEP:@dev/rustc}/bin/cargo
+        {CMD_ARGS}
+        -p kernel
+        --target {TARGET}
+        --target-dir .
+        --manifest-path {SOURCES}/Cargo.toml
+        -Z build-std=compiler_builtins,core,alloc
+        -Z build-std-features=compiler-builtins-mem
     build: >
-      env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
-      {BINDEP:@dev/rustc}/bin/cargo rustc
-      -p kernel
-      --target {TARGET}
-      --target-dir .
-      --manifest-path {SOURCES}/Cargo.toml
+      cargo rustc
       --release
       -Z build-std=compiler_builtins,core,alloc
       -Z build-std-features=compiler-builtins-mem

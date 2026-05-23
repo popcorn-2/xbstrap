@@ -41,6 +41,11 @@ class Package:
         
         self.available_features = self._parse_features(data.get('features', []))
         
+        # Package-specific custom commands
+        self.commands = {}
+        for k, v in data.get('commands', {}).items():
+            self.commands[k] = " ".join(v) if isinstance(v, list) else str(v)
+        
         # Keep dependencies as raw lists to evaluate {FEAT...} macros dynamically
         self.build_depends = data.get('build-depends', [])
         self.depends = data.get('depends', [])
@@ -79,6 +84,7 @@ class Registry:
     def __init__(self):
         self.packages = {}
         self.loaded_files = set()
+        self.commands = {}
 
     def load_manifest(self, filepath):
         filepath = Path(filepath).resolve()
@@ -96,6 +102,10 @@ class Registry:
         for imp in data.get('imports', []):
             imp_path = (filepath.parent / imp).resolve()
             self.load_manifest(imp_path)
+
+        # Load globally shared commands
+        for k, v in data.get('commands', {}).items():
+            self.commands[k] = " ".join(v) if isinstance(v, list) else str(v)
 
         for pkg_data in data.get('packages', []):
             pkg = Package(pkg_data, filepath.parent)
@@ -265,7 +275,6 @@ class Builder:
         if not gh_match:
             target_triple = self.get_target_triple(is_build_dep).triple
             url = pkg.binary_url.replace('{NAME}', pkg.name).replace('{SAFE_NAME}', pkg.safe_name).replace('{TARGET}', target_triple).replace('{FEATURES}', self._get_feat_suffix(requested_features))
-            # Verify file exists before claiming we can use it
             try:
                 urllib.request.urlopen(urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'Mozilla/5.0'}))
                 return url, requested_features
@@ -293,8 +302,6 @@ class Builder:
         return None, None
 
     def check_has_binary(self, pkg, is_build_dep, requested_features):
-        """Checks if a binary exists either locally or remotely, caching the result to speed up tree resolution."""
-        # Force build from source if it has a local source override
         if pkg.name in self.local_sources:
             return False
             
@@ -317,7 +324,6 @@ class Builder:
         return has_bin
 
     def compute_plan(self):
-        """Fixed-point iteration to unify features across the entire dependency graph."""
         changed = True
         while changed:
             changed = False
@@ -347,18 +353,15 @@ class Builder:
                     visited.add(key)
                     current_feats = self.planned_features[key]
                     
-                    # Only resolve build dependencies if we will ACTUALLY build this package!
                     if not self.check_has_binary(pkg, is_b, current_feats):
                         for d in pkg.build_depends:
                             res = self.resolve_dep_str(d, current_feats)
                             if res: q.append((res, True))
                             
-                    # Runtime dependencies are always required
                     for d in pkg.depends:
                         res = self.resolve_dep_str(d, current_feats)
                         if res: q.append((res, is_b))
                         
-        # Perform Topological Sort for execution
         visited = set()
         order = []
         def dfs(n, is_b):
@@ -389,6 +392,18 @@ class Builder:
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
             
+        # Execute Alias / Custom Commands Expansion first
+        parts = cmd.split(maxsplit=1)
+        if parts:
+            first_word = parts[0]
+            cmd_template = pkg.commands.get(first_word) or self.registry.commands.get(first_word)
+            if cmd_template:
+                cmd_args = parts[1] if len(parts) > 1 else ""
+                if "{CMD_ARGS}" in cmd_template:
+                    cmd = cmd_template.replace("{CMD_ARGS}", cmd_args)
+                else:
+                    cmd = f"{cmd_template} {cmd_args}".strip()
+
         current_base = self.host_sysroot if is_build_dep else self.base_sysroot
         pkg_staging = self.get_staging_dir(pkg, is_build_dep)
         target_triple = self.get_target_triple(is_build_dep)
@@ -407,7 +422,6 @@ class Builder:
         cmd = cmd.replace('{HOST:os}', self.host_triple.os)
         cmd = cmd.replace('{HOST:arch_alt}', self.host_triple.arch_alt)
         
-        # Validate dependency macros dynamically
         active_build_deps = self.get_resolved_dep_names(pkg.build_depends, requested_features)
         active_run_deps = self.get_resolved_dep_names(pkg.depends, requested_features)
         
@@ -536,7 +550,6 @@ class Builder:
     def execute_single(self, pkg, is_build_dep, requested_features, create_tarball=False, skip_triggers=False):
         print(f"\n>>> Processing {pkg.name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
 
-        # If it's a local source it automatically skips binary checks inside check_has_binary.
         if not self.check_has_binary(pkg, is_build_dep, requested_features) and not create_tarball and (self.from_source is None or pkg.name not in self.from_source and len(self.from_source) > 0 and pkg.name not in self.local_sources):
             cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
             if cached_path:
@@ -556,7 +569,6 @@ class Builder:
             
             print(f"  -> No binary cache available for {pkg.name} with features {requested_features}. Falling back to source build.")
         elif self.check_has_binary(pkg, is_build_dep, requested_features):
-             # For when compute_plan resolved it was binary compatible
              cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
              if cached_path and self.extract_archive(cached_path, pkg, is_build_dep):
                  if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
@@ -648,6 +660,11 @@ def main():
     pkg_parser = subparsers.add_parser('package', help="Build package from source and generate a binary tarball archive")
     pkg_parser.add_argument('package', help="Package target, e.g. @core/example:cxx", nargs="+")
     
+    run_parser = subparsers.add_parser('run', help="Run a custom command inside the package's build directory")
+    run_parser.add_argument('package', help="Package target, e.g. @core/example")
+    run_parser.add_argument('cmd', help="Command alias or binary to run")
+    run_parser.add_argument('cmd_args', nargs=argparse.REMAINDER, help="Additional arguments to pass to the command")
+    
     info_parser = subparsers.add_parser('info', help="Print parsed package information")
     info_parser.add_argument('package', help="Package name to inspect")
 
@@ -669,6 +686,7 @@ def main():
             "features": list(pkg.available_features),
             "depends": pkg.depends,
             "build-depends": pkg.build_depends,
+            "custom-commands": pkg.commands,
             "triggers_provided": list(pkg.triggers.keys()),
             "triggers_requested": pkg.post_install,
             "binary_url": pkg.binary_url
@@ -689,13 +707,29 @@ def main():
     if args.command == 'install':
         for pkg in args.package:
             builder.plan_target(pkg, args.as_build_dep)
-            
         builder.execute()
 
     elif args.command == 'package':
         for pkg in args.package:
             builder.plan_target(pkg, args.as_build_dep)
         builder.execute(create_tarball=True, skip_triggers=True)
+
+    elif args.command == 'run':
+        pkg_name, features = builder.parse_pkg_req(args.package)
+        pkg = registry.get(pkg_name)
+        
+        raw_cmd = args.cmd
+        if args.cmd_args:
+            raw_cmd += " " + " ".join(args.cmd_args)
+            
+        cmd = builder.expand_command(raw_cmd, pkg, args.as_build_dep, features)
+        
+        # Ensure sources are fetched and build dir exists
+        builder.fetch(pkg)
+        pkg.build_dir.mkdir(parents=True, exist_ok=True)
+        
+        print(f"\n>>> Running custom command for {pkg.name} in {pkg.build_dir}")
+        builder.run_command(cmd, pkg.build_dir)
 
 if __name__ == '__main__':
     main()
