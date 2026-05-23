@@ -133,7 +133,7 @@ class Triple:
             return f"{self.arch}-{self.vendor}-{self.os}"
 
 class Builder:
-    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, force_source=False):
+    def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, config_dir, dry_run=False, from_source=None, local_sources=None):
         self.registry = registry
         self.base_sysroot = Path(base_sysroot).resolve()
         self.host_sysroot = Path.cwd() / "pop-host-sysroot" if host_triple != target_triple else self.base_sysroot
@@ -142,7 +142,21 @@ class Builder:
         self.target_triple = Triple(target_triple)
         self.config_dir = Path(config_dir).resolve()
         self.dry_run = dry_run
-        self.force_source = force_source
+        self.from_source = from_source
+        
+        self.local_sources = {}
+        if local_sources:
+            for ls in local_sources:
+                if '=' not in ls:
+                    print(f"Error: Invalid --local-source format '{ls}'. Expected pkg=path")
+                    sys.exit(1)
+                k, v = ls.split('=', 1)
+                self.local_sources[k] = Path(v).resolve()
+                
+        # Override registry source directories for local sources right away
+        for pkg_name, path in self.local_sources.items():
+            if pkg_name in self.registry.packages:
+                self.registry.packages[pkg_name].source_dir = path
         
         self.planned_features = {}
         self.has_binary_cache = {}
@@ -279,8 +293,13 @@ class Builder:
 
     def check_has_binary(self, pkg, is_build_dep, requested_features):
         """Checks if a binary exists either locally or remotely, caching the result to speed up tree resolution."""
-        if self.force_source:
+        # Force build from source if it has a local source override
+        if pkg.name in self.local_sources:
             return False
+            
+        if self.from_source is not None:
+            if len(self.from_source) == 0 or pkg.name in self.from_source:
+                return False
             
         feat_tuple = tuple(sorted(requested_features))
         cache_key = (pkg.name, is_build_dep, feat_tuple)
@@ -439,6 +458,10 @@ class Builder:
             subprocess.run(cmd, cwd=cwd, shell=True, check=True, executable='/bin/bash')
 
     def fetch(self, pkg):
+        if pkg.name in self.local_sources:
+            print(f"  -> Using local source override for {pkg.name}: {pkg.source_dir}")
+            return
+            
         if not self.dry_run:
             pkg.source_dir.parent.mkdir(parents=True, exist_ok=True)
             
@@ -513,7 +536,8 @@ class Builder:
     def execute_single(self, pkg, is_build_dep, requested_features, create_tarball=False, skip_triggers=False):
         print(f"\n>>> Processing {pkg.name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
 
-        if not self.force_source and not create_tarball:
+        # If it's a local source it automatically skips binary checks inside check_has_binary.
+        if not self.check_has_binary(pkg, is_build_dep, requested_features) and not create_tarball and (self.from_source is None or pkg.name not in self.from_source and len(self.from_source) > 0 and pkg.name not in self.local_sources):
             cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
             if cached_path:
                 print(f"  -> Found suitable cached binary: {cached_path.name}")
@@ -531,6 +555,20 @@ class Builder:
                         return
             
             print(f"  -> No binary cache available for {pkg.name} with features {requested_features}. Falling back to source build.")
+        elif self.check_has_binary(pkg, is_build_dep, requested_features):
+             # For when compute_plan resolved it was binary compatible
+             cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
+             if cached_path and self.extract_archive(cached_path, pkg, is_build_dep):
+                 if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
+                 return
+                 
+             remote_url, matched_feats = self.find_remote_binary(pkg, is_build_dep, requested_features)
+             if remote_url:
+                 target_cache_path = self.get_archive_path(pkg, is_build_dep, matched_feats)
+                 if self.download_binary_from_url(remote_url, target_cache_path) and self.extract_archive(target_cache_path, pkg, is_build_dep):
+                     print(f"  -> Successfully installed {pkg.name} from downloaded binary.")
+                     if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
+                     return
 
         if not self.dry_run:
             staging_dir = self.get_staging_dir(pkg, is_build_dep)
@@ -599,7 +637,8 @@ def main():
     parser.add_argument('--target', help="Cross-compile target triple")
     parser.add_argument('--host', help="Host architecture triple")
     parser.add_argument('--dry-run', action='store_true', help="Print commands without executing them")
-    parser.add_argument('--from-source', action='store_true', help="Force build from source (ignore binary caches)")
+    parser.add_argument('--from-source', nargs='*', default=None, metavar='PKG', help="Force build from source (ignore binary caches). Pass package names to force specific ones, or omit arguments to force all.")
+    parser.add_argument('--local-source', action='append', default=[], metavar='PKG=PATH', help="Override source directory for a package (format: pkg=path), e.g. @core/example=./my-src")
     
     subparsers = parser.add_subparsers(dest='command', required=True)
 
@@ -637,7 +676,17 @@ def main():
         }, sort_keys=False))
         sys.exit(0)
 
-    builder = Builder(registry, args.sysroot, args.cache_dir, host_triple, target_triple, args.config, args.dry_run, args.from_source)
+    builder = Builder(
+        registry, 
+        args.sysroot, 
+        args.cache_dir, 
+        host_triple, 
+        target_triple, 
+        args.config, 
+        args.dry_run, 
+        args.from_source, 
+        args.local_source
+    )
 
     if args.command == 'install':
         for pkg in args.package:
