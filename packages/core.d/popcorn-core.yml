@@ -10,6 +10,7 @@ packages:
     depends:
       - "@core/bootloader:{FEAT:kasan:kasan}"
     commands:
+      # idk why this is broken i just want to run clippy :(
       cargo: >
         env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
         {BINDEP:@dev/rustc}/bin/cargo

@@ -1,8 +1,5 @@
 imports:
-  - core.d/libc.yml
-  - core.d/llvm.yml
+  - core.d/crt.yml
   - core.d/popcorn-core.yml
-  - core.d/popcorn-devman.yml
-  - core.d/popcorn-file-server.yml
-  - core.d/popcorn-pipc.yml
-  - core.d/rust.yml
+  - core.d/devman.yml
+  - core.d/file-server.yml

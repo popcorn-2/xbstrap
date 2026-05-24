@@ -1,14 +1,41 @@
 packages:
-  - name: llvm
-    source: llvm
-    require-tools:
-      - llvm
+  - name: "@dev/llvm"
+    git: 'https://github.com/popcorn-2/llvm-project.git'
+    binary-url: 'https://github.com/popcorn-2/llvm-project/releases/download/latest/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
+    license: 'Apache-2.0 WITH LLVM-exception'
+    author:
+      - 'LLVM Project'
+      - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
+    maintainer:
+      - 'Eliyahu Gluschove-Koppel <egkoppel@eliyahu.co.uk>'
+    features:
+      - clang:
+        - extra-tools
+      - lld
     configure: >
       cmake
       -G Ninja
       -B .
-      -C @@CONFIG@@/cmake/popcorn-cross.cmake
-      -DCMAKE_TOOLCHAIN_FILE=@@CONFIG@@/cmake/popcorn-toolchain.cmake
-      @@SOURCES@@/llvm
+      -D LLVM_ENABLE_PROJECTS="{FEAT:clang:clang;}{FEAT:clang-extra-tools:clang-tools-extra;}{FEAT:lld:lld;}"
+      -D LLVM_ENABLE_RUNTIMES=""
+      -D BUILD_SHARED_LIBS=OFF
+      -D CLANG_DEFAULT_CXX_STDLIB="libc++"
+      -D CLANG_DEFAULT_LINKER=lld
+      -D CLANG_DEFAULT_OBJCOPY=llvm-objcopy
+      -D CLANG_DEFAULT_RTLIB=compiler-rt
+      -D CLANG_DEFAULT_UNWINDLIB=libunwind
+      -D LLVM_TARGETS_TO_BUILD="Native;X86"
+      -D CMAKE_BUILD_TYPE=RelWithDebInfo
+      -D CMAKE_C_FLAGS_RELWITHDEBINFO="-O3 -gline-tables-only -DNDEBUG"
+      -D CMAKE_CXX_FLAGS_RELWITHDEBINFO="-O3 -gline-tables-only -DNDEBUG"
+      -D LLVM_ENABLE_LTO=OFF
+      -D PACKAGE_VENDOR=Popcorn2
+      -D CMAKE_OSX_ARCHITECTURES=x86_64
+      -D LLVM_INSTALL_TOOLCHAIN_ONLY=ON
+      -D LLVM_TOOLCHAIN_TOOLS="dsymutil;llvm-cov;llvm-dwarfdump;llvm-profdata;llvm-objdump;llvm-nm;llvm-size;llvm-cxxfilt;llvm-config;llvm-ar;llvm-ranlib"
+      -D LLVM_DISTRIBUTION_COMPONENTS="{FEAT:clang:clang;LTO;}{FEAT:lld:lld;}dsymutil;llvm-cov;llvm-dwarfdump;llvm-profdata;llvm-objdump;llvm-nm;llvm-size;llvm-cxxfilt;llvm-config;llvm-ar;llvm-ranlib"
+      {SOURCES}/llvm
     build:
-      - ninja
+      - cmake --build . --target distribution
+    install:
+      - DESTDIR={SYSROOT} cmake --install . --component distribution --strip --prefix=/

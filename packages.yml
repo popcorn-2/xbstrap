@@ -1,10 +1,11 @@
 imports:
+- packages/common.yml
 - packages/core.yml
+- packages/dev.yml
 - packages/drivers.yml
 
 packages:
-  - name: "@core/base-system"
-    system: true
+  - name: "base-system"
     depends:
       - "@core/libc:posix,lib,headers"
       - "@core/kernel"
@@ -17,5 +18,5 @@ packages:
       # - "@driver/i8042"
       - "@driver/pci"
 
-      # - "@uutils/coreutils:echo,head,join,ls,printf,printenv,pwd,rm,seq,tee,wc,yes,more"
-      # - "@uutils/tar"
+      # - "@common/coreutils:echo,head,join,ls,printf,printenv,pwd,rm,seq,tee,wc,yes,more"
+      # - "@common/tar"

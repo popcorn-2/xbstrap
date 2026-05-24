@@ -1,29 +1,27 @@
-sources:
-  - name: i8042
-    git: 'https://github.com/popcorn-2/i8042.git'
-
 packages:
-  - name: i8042
-    source: i8042
-    require-tools:
-      - rust
-      - llvm
-      - devman-update-registry
+  - name: "@driver/i8042"
+    git: 'https://github.com/popcorn-2/i8042.git'
+    system: true
+    build-depends:
+      - "@dev/rustc:cargo"
+      - "@dev/llvm:clang,lld"
+    depends:
+      - "@core/devman"
+    post-install:
+      - '@core/devman:update-registry'
     build: >
-      env RUSTC=@@TOOLCHAIN@@/bin/rustc
-      @@TOOLCHAIN@@/bin/cargo rustc
-      --target @@TRIPLE@@
+      env RUSTC={BINDEP:@dev/rustc}/bin/rustc
+      {BINDEP:@dev/rustc}/bin/cargo
+      rustc
+      --target {TARGET}
       --target-dir .
-      --manifest-path @@SOURCES@@/Cargo.toml
+      --manifest-path {SOURCES}/Cargo.toml
       --release
       --
-      -C linker=@@TOOLCHAIN@@/bin/clang
-      -C link-arg=--target=@@TRIPLE@@
-      -C link-arg=--sysroot=@@SYSROOT@@
+      -C linker={BINDEP:@dev/llvm}/bin/clang
+      -C link-args=--target={TARGET}
+      -C link-args=--sysroot={BASE_SYSROOT}
       -C panic=abort
-      -C target-feature=+crt-static
-    # -C target-cpu=native
     install:
-      - mkdir -p @@INSTALL_DIR@@/driver/
-      - install @@TRIPLE@@/release/i8042.exec @@INSTALL_DIR@@/driver/i8042.exec
-      - '@@TOOLCHAIN@@/system/bin/update-driver-registry @@SYSROOT@@'
+      - mkdir -p {SYSROOT}/drivers
+      - install {TARGET}/release/i8042.exec {SYSROOT}/drivers/i8042.exec
