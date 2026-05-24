@@ -1,5 +1,6 @@
 imports:
 - packages/core.yml
+- packages/drivers.yml
 
 packages:
   - name: "@core/base-system"
@@ -8,13 +9,13 @@ packages:
       - "@core/libc:posix,lib,headers"
       - "@core/kernel"
       - "@core/bootloader"
-      # - "@core/file-server"
-      # - "@core/devman"
+      - "@core/file-server"
+      - "@core/devman"
 
       # - "@driver/acpi"
       # - "@driver/ahci"
       # - "@driver/i8042"
-      # - "@driver/pci"
+      - "@driver/pci"
 
       # - "@uutils/coreutils:echo,head,join,ls,printf,printenv,pwd,rm,seq,tee,wc,yes,more"
       # - "@uutils/tar"
