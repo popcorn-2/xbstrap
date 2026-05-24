@@ -1,6 +1,8 @@
 packages:
   - name: "@core/kernel"
-    git: 'https://github.com/popcorn-2/popcorn-2.git'
+    git:
+      source: 'https://github.com/popcorn-2/popcorn-2.git'
+      recursive: true
     system: true
     features:
       - kasan

@@ -481,8 +481,18 @@ class Builder:
             
         if pkg.git:
             if not pkg.source_dir.exists() and not self.dry_run:
-                print(f"  -> Cloning {pkg.git}")
-                subprocess.run(["git", "clone", pkg.git, str(pkg.source_dir)], check=True)
+                if isinstance(pkg.git, str):
+                    git = pkg.git
+                    recursive = False
+                else:
+                    git = pkg.git["source"]
+                    recursive = pkg.git.get("recursive", False)
+                print(f"  -> Cloning `{git}`{" and submodules" if recursive else ""}")
+                cmd = ["git", "clone"]
+                if recursive:
+                    cmd.append("--recurse-submodules")
+                cmd += [git, str(pkg.source_dir)]
+                subprocess.run(cmd, check=True)
             else:
                 print(f"  -> Source ready: {pkg.git}")
         elif pkg.source:
