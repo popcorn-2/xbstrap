@@ -179,7 +179,7 @@ class Builder:
     def parse_pkg_req(self, req_str):
         parts = req_str.split(':', 1)
         name = parts[0]
-        features = set(parts[1].split(',')) if len(parts) > 1 else set()
+        features = set(parts[1].split(',')) if len(parts) > 1 and len(parts[1]) > 0 else set()
         return name, features
 
     def resolve_dep_str(self, dep_req, requested_features):
