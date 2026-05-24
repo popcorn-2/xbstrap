@@ -9,6 +9,7 @@ packages:
       - clippy
       - docs
       - src
+      - rustfmt
     configure: |
       cat <<'EOF' > config.toml
       profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
@@ -36,6 +37,7 @@ packages:
               {FEAT:clippy:"clippy",}
               #{FEAT:miri:"miri",}
               #{FEAT:cargo-miri:"cargo-miri",}
+              {FEAT:rustfmt:"rustfmt",}
       ]
 
       [dist]
