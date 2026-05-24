@@ -12,19 +12,20 @@ packages:
     depends:
       - "@core/bootloader:{FEAT:kasan:kasan}"
     commands:
-      # idk why this is broken i just want to run clippy :(
       cargo: >
-        env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
-        {BINDEP:@dev/rustc}/bin/cargo
-        {CMD_ARGS}
+        env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:-Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' CARGO={BINDEP:@dev/rustc}/bin/cargo
+        {BINDEP:@dev/rustc}/bin/cargo-{CMD_ARGS:0}
+        {CMD_ARGS:0}
         -p kernel
         --target {TARGET}
         --target-dir .
         --manifest-path {SOURCES}/Cargo.toml
         -Z build-std=compiler_builtins,core,alloc
         -Z build-std-features=compiler-builtins-mem
+        {FEAT:kasan:--features=kasan}
+        {CMD_ARGS:1..}
     build: >
-      env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:-Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}'
+      env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:-Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' CARGO={BINDEP:@dev/rustc}/bin/cargo
       {BINDEP:@dev/rustc}/bin/cargo
       rustc
       -p kernel
@@ -59,6 +60,18 @@ packages:
       - kasan
     build-depends:
       - "@dev/rustc:cargo,src"
+    commands:
+      cargo: >
+        env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"' CARGO={BINDEP:@dev/rustc}/bin/cargo
+        {BINDEP:@dev/rustc}/bin/cargo-{CMD_ARGS:0}
+        {CMD_ARGS:0}
+        -p bootloader
+        --target {TARGET:arch}-unknown-uefi
+        --target-dir .
+        --manifest-path {SOURCES}/Cargo.toml
+        -Z build-std=core,alloc
+        {FEAT:kasan:--features=kasan}
+        {CMD_ARGS:1..}
     build: >
       env RUSTC={BINDEP:@dev/rustc}/bin/rustc
       {BINDEP:@dev/rustc}/bin/cargo build

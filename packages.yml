@@ -20,3 +20,13 @@ packages:
 
       # - "@common/coreutils:echo,head,join,ls,printf,printenv,pwd,rm,seq,tee,wc,yes,more"
       # - "@common/tar"
+
+commands:
+  cargo: >
+    env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"' CARGO={BINDEP:@dev/rustc}/bin/cargo
+    {BINDEP:@dev/rustc}/bin/cargo-{CMD_ARGS:0}
+    {CMD_ARGS:0}
+    --target {TARGET}
+    --target-dir .
+    --manifest-path {SOURCES}/Cargo.toml
+    {CMD_ARGS:1..}

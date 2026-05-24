@@ -398,10 +398,27 @@ class Builder:
             first_word = parts[0]
             cmd_template = pkg.commands.get(first_word) or self.registry.commands.get(first_word)
             if cmd_template:
-                cmd_args = parts[1].strip() if len(parts) > 1 else ""
-                if "{CMD_ARGS}" in cmd_template:
-                    cmd = cmd_template.replace("{CMD_ARGS}", cmd_args)
-                else:
+                # todo: fix when stuff is enclosed in quote marks to keep as one arg
+                cmd_args = (parts[1].strip() if len(parts) > 1 else "").split(" ")
+
+                def repl_cmdargs(match):
+                    start = match.group(2)
+                    end = match.group(4)
+                    # todo: allow open start instead of needing a 0.. at the start
+                    has_end = match.group(3) is not None
+
+                    if start is None:
+                        return " ".join(cmd_args)
+                    elif has_end and end is not None:
+                        return " ".join(cmd_args[int(start):int(end)])
+                    elif has_end:
+                        return " ".join(cmd_args[int(start):])
+                    else:
+                        return cmd_args[int(start)]
+
+                cmd = re.sub(r"{CMD_ARGS(:(\d+)(..)?(\d+)?)?}", repl_cmdargs, cmd_template)
+
+                if cmd == cmd_template: # we didn't match anything so just append them all
                     cmd = f"{cmd_template} {cmd_args}".strip()
 
         current_base = self.host_sysroot if is_build_dep else self.base_sysroot
