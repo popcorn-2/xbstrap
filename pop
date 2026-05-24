@@ -487,7 +487,8 @@ class Builder:
                 else:
                     git = pkg.git["source"]
                     recursive = pkg.git.get("recursive", False)
-                print(f"  -> Cloning `{git}`{" and submodules" if recursive else ""}")
+                submodules = " and submodules" if recursive else ""
+                print(f"  -> Cloning `{git}`{submodules}")
                 cmd = ["git", "clone"]
                 if recursive:
                     cmd.append("--recurse-submodules")
