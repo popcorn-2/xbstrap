@@ -2,9 +2,13 @@ packages:
   - name: "@core/kernel"
     git: 'https://github.com/popcorn-2/popcorn-2.git'
     system: true
+    features:
+      - kasan
     build-depends:
       - "@dev/rustc:cargo,src"
       - "@dev/llvm:clang,lld"
+    depends:
+      - "@core/bootloader:{FEAT:kasan:kasan}"
     commands:
       cargo: >
         env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"'
@@ -17,10 +21,17 @@ packages:
         -Z build-std=compiler_builtins,core,alloc
         -Z build-std-features=compiler-builtins-mem
     build: >
-      cargo rustc
-      --release
+      env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:-Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}'
+      {BINDEP:@dev/rustc}/bin/cargo
+      rustc
+      -p kernel
+      --target {TARGET}
+      --target-dir .
+      --manifest-path {SOURCES}/Cargo.toml
       -Z build-std=compiler_builtins,core,alloc
       -Z build-std-features=compiler-builtins-mem
+      {FEAT:kasan:--features=kasan}
+      --release
       --
       -C linker={BINDEP:@dev/llvm}/bin/clang
       -C link-args=--target={TARGET}
@@ -35,12 +46,14 @@ packages:
       -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2
       -Z tls-model=local-exec
     install:
-      - mkdir -p {BASE_SYSROOT}/efi/boot/
-      - install {TARGET}/release/kernel.exec {BASE_SYSROOT}/efi/boot/kernel.exec
+      - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
+      - install {TARGET}/release/kernel.exec {BASE_SYSROOT}/efi/EFI/boot/kernel.exec
 
   - name: "@core/bootloader"
     source: "@core/kernel"
     system: true
+    features:
+      - kasan
     build-depends:
       - "@dev/rustc:cargo,src"
     build: >
@@ -52,6 +65,7 @@ packages:
       --manifest-path {SOURCES}/Cargo.toml
       --release
       -Z build-std=core,alloc
+      {FEAT:kasan:--features=kasan}
     install:
       - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
       - install {TARGET:arch}-unknown-uefi/release/bootloader.efi {BASE_SYSROOT}/efi/EFI/boot/bootx64.efi
