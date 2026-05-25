@@ -84,4 +84,6 @@ packages:
       {FEAT:kasan:--features=kasan}
     install:
       - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
+      - mkdir -p {BASE_SYSROOT}/efi/EFI/POPCORN/
       - install {TARGET:arch}-unknown-uefi/release/bootloader.efi {BASE_SYSROOT}/efi/EFI/boot/bootx64.efi
+      - touch {BASE_SYSROOT}/efi/EFI/POPCORN/config.toml
