@@ -145,6 +145,37 @@ class Triple:
         else:
             return f"{self.arch}-{self.vendor}-{self.os}"
 
+class InstalledManifest:
+    def __init__(self, filepath):
+        self.filepath = Path(filepath).resolve()
+        self.installed = {}
+        self.load()
+
+    def load(self):
+        if self.filepath.exists():
+            try:
+                with open(self.filepath, 'r') as f:
+                    self.installed = json.load(f)
+            except json.JSONDecodeError:
+                self.installed = {}
+
+    def save(self):
+        self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.filepath, 'w') as f:
+            json.dump(self.installed, f, indent=2)
+
+    def is_installed(self, name, features):
+        if name not in self.installed:
+            return False
+        installed_feats = set(self.installed[name].get('features', []))
+        return features.issubset(installed_feats)
+
+    def mark_installed(self, name, features):
+        existing_feats = set(self.installed.get(name, {}).get('features', []))
+        new_feats = existing_feats | features
+        self.installed[name] = {'features': sorted(list(new_feats))}
+        self.save()
+
 class Builder:
     def __init__(self, registry, base_sysroot, cache_dir, host_triple, target_triple, dry_run=False, from_source=None, local_sources=None):
         self.registry = registry
@@ -155,6 +186,14 @@ class Builder:
         self.target_triple = Triple(target_triple)
         self.dry_run = dry_run
         self.from_source = from_source
+        
+        # Initialize manifests
+        self.target_manifest = InstalledManifest(self.base_sysroot / "system" / "etc" / "popcorn_manifest.json")
+        if host_triple != target_triple:
+            self.host_manifest = InstalledManifest(self.host_sysroot / "popcorn_manifest.json")
+        else:
+            # Prevent in-memory state overwrites if building tools in the same sysroot
+            self.host_manifest = self.target_manifest
         
         self.local_sources = {}
         if local_sources:
@@ -175,6 +214,9 @@ class Builder:
         self.queued_triggers = set()
         self.initial_targets = []
         self.github_assets_cache = {}
+
+    def get_manifest(self, is_build_dep):
+        return self.host_manifest if is_build_dep else self.target_manifest
 
     def plan_target(self, pkg_req, is_build_dep=False, no_install=False):
         self.initial_targets.append((pkg_req, is_build_dep, no_install))
@@ -401,13 +443,11 @@ class Builder:
             first_word = parts[0]
             cmd_template = pkg.commands.get(first_word) or self.registry.commands.get(first_word)
             if cmd_template:
-                # todo: fix when stuff is enclosed in quote marks to keep as one arg
                 cmd_args = (parts[1].strip() if len(parts) > 1 else "").split(" ")
 
                 def repl_cmdargs(match):
                     start = match.group(2)
                     end = match.group(4)
-                    # todo: allow open start instead of needing a 0.. at the start
                     has_end = match.group(3) is not None
 
                     if start is None:
@@ -582,7 +622,23 @@ class Builder:
                 sys.exit(1)
             self.queued_triggers.add((t_pkg_name, t_name, is_build_dep))
 
+    def _finalize_install(self, pkg, is_build_dep, requested_features, skip_triggers):
+        if not skip_triggers:
+            self._queue_triggers(pkg, is_build_dep)
+        if not self.dry_run:
+            self.get_manifest(is_build_dep).mark_installed(pkg.name, requested_features)
+
     def execute_single(self, pkg, is_build_dep, requested_features, create_tarball=False, skip_triggers=False, skip_install=False):
+        manifest = self.get_manifest(is_build_dep)
+        
+        # Determine if we should skip the install
+        is_local_override = pkg.name in self.local_sources
+        explicit_from_source = self.from_source is not None and (len(self.from_source) == 0 or pkg.name in self.from_source)
+        
+        if not is_local_override and not explicit_from_source and not skip_install and manifest.is_installed(pkg.name, requested_features):
+            print(f"  -> {pkg.name} is already installed with features [{', '.join(requested_features)}]. Skipping.")
+            return
+
         print(f"\n>>> Processing {pkg.name} [{'BUILD DEP' if is_build_dep else 'TARGET'}] (Features: {requested_features})")
 
         if not self.check_has_binary(pkg, is_build_dep, requested_features) and not create_tarball and (self.from_source is None or pkg.name not in self.from_source and len(self.from_source) > 0 and pkg.name not in self.local_sources):
@@ -590,7 +646,7 @@ class Builder:
             if cached_path:
                 print(f"  -> Found suitable cached binary: {cached_path.name}")
                 if self.extract_archive(cached_path, pkg, is_build_dep):
-                    if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
+                    self._finalize_install(pkg, is_build_dep, requested_features, skip_triggers)
                     return
             
             remote_url, matched_feats = self.find_remote_binary(pkg, is_build_dep, requested_features)
@@ -599,14 +655,14 @@ class Builder:
                 if self.download_binary_from_url(remote_url, target_cache_path):
                     if self.extract_archive(target_cache_path, pkg, is_build_dep):
                         print(f"  -> Successfully installed {pkg.name} from downloaded binary.")
-                        if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
+                        self._finalize_install(pkg, is_build_dep, requested_features, skip_triggers)
                         return
             
             print(f"  -> No binary cache available for {pkg.name} with features {requested_features}. Falling back to source build.")
         elif self.check_has_binary(pkg, is_build_dep, requested_features):
              cached_path = self.find_local_cache(pkg, is_build_dep, requested_features)
              if cached_path and self.extract_archive(cached_path, pkg, is_build_dep):
-                 if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
+                 self._finalize_install(pkg, is_build_dep, requested_features, skip_triggers)
                  return
                  
              remote_url, matched_feats = self.find_remote_binary(pkg, is_build_dep, requested_features)
@@ -614,7 +670,7 @@ class Builder:
                  target_cache_path = self.get_archive_path(pkg, is_build_dep, matched_feats)
                  if self.download_binary_from_url(remote_url, target_cache_path) and self.extract_archive(target_cache_path, pkg, is_build_dep):
                      print(f"  -> Successfully installed {pkg.name} from downloaded binary.")
-                     if not skip_triggers: self._queue_triggers(pkg, is_build_dep)
+                     self._finalize_install(pkg, is_build_dep, requested_features, skip_triggers)
                      return
 
         if not self.dry_run:
@@ -633,6 +689,7 @@ class Builder:
                 cmd = self.expand_command(step, pkg, is_build_dep, requested_features)
                 self.run_command(cmd, pkg.build_dir)
         
+        # If we only want to build, do not merge into sysroot or mark as installed
         if skip_install:
             return
 
@@ -650,8 +707,7 @@ class Builder:
             print(f"  -> Merging staging directory into {final_dir}")
             shutil.copytree(staging_dir, final_dir, dirs_exist_ok=True)
 
-        if not skip_triggers:
-            self._queue_triggers(pkg, is_build_dep)
+        self._finalize_install(pkg, is_build_dep, requested_features, skip_triggers)
 
     def execute(self, create_tarball=False, skip_triggers=False):
         order = self.compute_plan()
