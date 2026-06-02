@@ -13,10 +13,9 @@ packages:
       - "@core/bootloader:{FEAT:kasan:kasan}"
     commands:
       cargo: >
-        env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:-Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' CARGO={BINDEP:@dev/rustc}/bin/cargo
-        {BINDEP:@dev/rustc}/bin/cargo-{CMD_ARGS:0}
+        env RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:--cfg=kasan -Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' PATH={BINDEP:@dev/rustc}/bin:$HOME/.cargo/bin:$PATH
+        cargo
         {CMD_ARGS:0}
-        -p kernel
         --target {TARGET}
         --target-dir .
         --manifest-path {SOURCES}/Cargo.toml
@@ -25,16 +24,9 @@ packages:
         {FEAT:kasan:--features=kasan}
         {CMD_ARGS:1..}
     build: >
-      env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:-Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' CARGO={BINDEP:@dev/rustc}/bin/cargo
-      {BINDEP:@dev/rustc}/bin/cargo
+      cargo
       rustc
       -p kernel
-      --target {TARGET}
-      --target-dir .
-      --manifest-path {SOURCES}/Cargo.toml
-      -Z build-std=compiler_builtins,core,alloc
-      -Z build-std-features=compiler-builtins-mem
-      {FEAT:kasan:--features=kasan}
       --release
       --
       -C linker={BINDEP:@dev/llvm}/bin/clang
