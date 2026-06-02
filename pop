@@ -764,6 +764,8 @@ def main():
     
     info_parser = subparsers.add_parser('info', help="Print parsed package information")
     info_parser.add_argument('package', help="Package name to inspect")
+    info_parser.add_argument('--sources', action='store_true')
+    info_parser.add_argument('--build-dir', action='store_true')
 
     args = parser.parse_args()
     host_triple = args.host or get_host_triple()
@@ -774,20 +776,38 @@ def main():
 
     if args.command == 'info':
         pkg = registry.get(args.package.split(":")[0])
-        print(f"Package: {pkg.name}")
-        print(f"System Package: {'Yes (/system)' if pkg.system else 'No (/pkg)'}")
-        print(f"Host Triple: {host_triple}")
-        print(f"Target Triple: {target_triple}")
-        print("-" * 40)
-        print(yaml.dump({
-            "features": list(pkg.available_features),
-            "depends": pkg.depends,
-            "build-depends": pkg.build_depends,
-            "custom-commands": pkg.commands,
-            "triggers_provided": list(pkg.triggers.keys()),
-            "triggers_requested": pkg.post_install,
-            "binary_url": pkg.binary_url
-        }, sort_keys=False))
+
+        specific_info_printed = False
+
+        if args.sources:
+            if specific_info_printed:
+                print(" ", end="")
+            print(pkg.source_dir, end="")
+            specific_info_printed = True
+        
+        if args.build_dir:
+            if specific_info_printed:
+                print(" ", end="")
+            print(pkg.build_dir, end="")
+            specific_info_printed = True
+        
+        if specific_info_printed:
+            print()
+        else:
+            print(f"Package: {pkg.name}")
+            print(f"System Package: {'Yes (/system)' if pkg.system else 'No (/pkg)'}")
+            print(f"Host Triple: {host_triple}")
+            print(f"Target Triple: {target_triple}")
+            print("-" * 40)
+            print(yaml.dump({
+                "features": list(pkg.available_features),
+                "depends": pkg.depends,
+                "build-depends": pkg.build_depends,
+                "custom-commands": pkg.commands,
+                "triggers_provided": list(pkg.triggers.keys()),
+                "triggers_requested": pkg.post_install,
+                "binary_url": pkg.binary_url
+            }, sort_keys=False))
         sys.exit(0)
 
     builder = Builder(
