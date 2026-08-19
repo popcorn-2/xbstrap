@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ "$(uname)" == "Darwin" ]; then
+    export PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+fi
+
+genimage --config "$(dirname "$0")/genimage.cfg" --rootpath sysroot
+cp images/popcorn.img .
