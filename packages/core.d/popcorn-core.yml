@@ -42,8 +42,8 @@ packages:
       -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2
       -Z tls-model=local-exec
     install:
-      - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
-      - install {TARGET}/release/kernel.exec {BASE_SYSROOT}/efi/EFI/boot/kernel.exec
+      - mkdir -p {SYSROOT}/kernel
+      - install {TARGET}/release/kernel.exec {SYSROOT}/kernel/kernel-0.1.0.exec
 
   - name: "@core/bootloader"
     source: "@core/kernel"
