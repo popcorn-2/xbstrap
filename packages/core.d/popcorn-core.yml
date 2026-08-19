@@ -10,7 +10,7 @@ packages:
       - "@dev/rustc:cargo,src"
       - "@dev/llvm:clang,lld"
     depends:
-      - "@core/bootloader:{FEAT:kasan:kasan}"
+      - "@core/bootloader"
     commands:
       cargo: >
         env RUSTFLAGS='-C target-feature=-crt-static -C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0" {FEAT:kasan:--cfg=kasan -Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' PATH={BINDEP:@dev/rustc}/bin:$HOME/.cargo/bin:$PATH
@@ -48,32 +48,23 @@ packages:
   - name: "@core/bootloader"
     source: "@core/kernel"
     system: true
-    features:
-      - kasan
     build-depends:
       - "@dev/rustc:cargo,src"
     commands:
       cargo: >
-        env RUSTC={BINDEP:@dev/rustc}/bin/rustc RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"' CARGO={BINDEP:@dev/rustc}/bin/cargo
-        {BINDEP:@dev/rustc}/bin/cargo-{CMD_ARGS:0}
+        env RUSTFLAGS='-C symbol-mangling-version=v0 --cfg=kernel_version="0.1.0"' PATH={BINDEP:@dev/rustc}/bin:$HOME/.cargo/bin:$PATH
+        cargo
         {CMD_ARGS:0}
         -p bootloader
         --target {TARGET:arch}-unknown-uefi
         --target-dir .
         --manifest-path {SOURCES}/Cargo.toml
         -Z build-std=core,alloc
-        {FEAT:kasan:--features=kasan}
         {CMD_ARGS:1..}
     build: >
-      env RUSTC={BINDEP:@dev/rustc}/bin/rustc
-      {BINDEP:@dev/rustc}/bin/cargo build
+      cargo build
       -p bootloader
-      --target {TARGET:arch}-unknown-uefi
-      --target-dir .
-      --manifest-path {SOURCES}/Cargo.toml
       --release
-      -Z build-std=core,alloc
-      {FEAT:kasan:--features=kasan}
     install:
       - mkdir -p {BASE_SYSROOT}/efi/EFI/boot/
       - mkdir -p {BASE_SYSROOT}/efi/EFI/POPCORN/
