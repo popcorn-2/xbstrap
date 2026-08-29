@@ -16,6 +16,7 @@ packages:
       cmake
       -G Ninja
       -B .
+      -D CMAKE_INSTALL_PREFIX={SYSROOT}
       -D LLVM_ENABLE_PROJECTS="{FEAT:clang:clang;}{FEAT:clang-extra-tools:clang-tools-extra;}{FEAT:lld:lld;}"
       -D LLVM_ENABLE_RUNTIMES=""
       -D BUILD_SHARED_LIBS=OFF
@@ -38,4 +39,4 @@ packages:
     build:
       - cmake --build . --target distribution
     install:
-      - DESTDIR={SYSROOT} cmake --install . --component distribution --strip --prefix=/
+      - cmake --build . --target install-distribution
