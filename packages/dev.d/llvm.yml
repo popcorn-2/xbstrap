@@ -39,4 +39,4 @@ packages:
     build:
       - cmake --build . --target distribution
     install:
-      - cmake --build . --target install-distribution
+      - cmake --build . --target install
