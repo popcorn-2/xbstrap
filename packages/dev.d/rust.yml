@@ -12,7 +12,22 @@ packages:
       - src
       - rustfmt
     configure: |
-      cat <<'EOF' > config.toml
+      cat <<'EOF' > ./clang_shim.sh
+      #!/bin/sh
+      echo "using clang shim"
+      {BINDEP:@dev/llvm}/bin/clang --sysroot={BASE_SYSROOT} "$@"
+      EOF
+
+      cat <<'EOF' > ./clang++_shim.sh
+      #!/bin/sh
+      echo "using clang++ shim"
+      {BINDEP:@dev/llvm}/bin/clang++ --sysroot={BASE_SYSROOT} "$@"
+      EOF
+
+      chmod +x ./clang_shim.sh
+      chmod +x ./clang++_shim.sh
+
+      cat <<EOF > config.toml
       profile = "compiler"  # Includes one of the default files in src/bootstrap/defaults
       change-id = 154587
 
@@ -49,11 +64,11 @@ packages:
       sysconfdir = "{SYSROOT}/etc"
 
       [target.x86_64-unknown-popcorn]
-      cc = "{BINDEP:@dev/llvm}/bin/clang"
-      cxx = "{BINDEP:@dev/llvm}/bin/clang++"
+      cc = "$(pwd)/clang_shim.sh"
+      cxx = "$(pwd)/clang++_shim.sh"
       ar = "{BINDEP:@dev/llvm}/bin/llvm-ar"
       ranlib = "{BINDEP:@dev/llvm}/bin/llvm-ranlib"
-      linker =  "{BINDEP:@dev/llvm}/bin/clang"
+      linker =  "$(pwd)/clang_shim.sh"
       llvm-config = "{BINDEP:@dev/llvm}/bin/llvm-config"
       crt-static = true
       EOF
