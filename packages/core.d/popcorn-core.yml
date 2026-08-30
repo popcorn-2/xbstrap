@@ -11,7 +11,7 @@ packages:
       - "@dev/llvm:clang,lld"
     commands:
       cargo: >
-        env RUSTFLAGS='-C target-feature=-crt-static,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2,+soft-float -C symbol-mangling-version=v0 -C linker={BINDEP:@dev/llvm}/bin/clang -C code-model=kernel -C relocation-model=static -C panic=unwind -Z tls-model=local-exec --cfg=kernel_version="0.1.0" {FEAT:kasan:--cfg=kasan -Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' PATH={BINDEP:@dev/rustc}/bin:$HOME/.cargo/bin:$PATH
+        env RUSTFLAGS='-C target-feature=-crt-static,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2,+soft-float -C symbol-mangling-version=v0 -C code-model=kernel -C relocation-model=static -C panic=unwind -Z tls-model=local-exec --cfg=kernel_version="0.1.0" {FEAT:kasan:--cfg=kasan -Z sanitizer=kernel-address -C llvm-args=-asan-mapping-offset=0xdfffd00000000000 -C llvm-args=-asan-use-stack-safety=0}' PATH={BINDEP:@dev/rustc}/bin:$HOME/.cargo/bin:$PATH
         cargo
         {CMD_ARGS:0}
         --target {TARGET}
@@ -20,6 +20,7 @@ packages:
         -Z build-std=compiler_builtins,core,alloc
         -Z build-std-features=compiler-builtins-mem
         {CMD_ARGS:1..}
+        
     build: >
       cargo
       rustc
@@ -30,6 +31,7 @@ packages:
       -C link-arg=--sysroot={BASE_SYSROOT}
       -C link-arg=-nostartfiles
       -C link-arg=-Wl,-T{SOURCES}/kernel/src/hal/arch/{TARGET:arch_alt}/linker.ld
+      -C linker={BINDEP:@dev/llvm}/bin/clang 
     install:
       - mkdir -p {SYSROOT}/kernel
       - install {TARGET}/release/kernel.exec {SYSROOT}/kernel/kernel-0.1.0.exec
