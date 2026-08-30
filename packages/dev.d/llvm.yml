@@ -20,6 +20,7 @@ packages:
       -D LLVM_ENABLE_PROJECTS="{FEAT:clang:clang;}{FEAT:clang-extra-tools:clang-tools-extra;}{FEAT:lld:lld;}"
       -D LLVM_ENABLE_RUNTIMES=""
       -D BUILD_SHARED_LIBS=OFF
+      -D LLVM_ENABLE_BINDINGS=OFF
       -D CLANG_DEFAULT_CXX_STDLIB="libc++"
       -D CLANG_DEFAULT_LINKER=lld
       -D CLANG_DEFAULT_OBJCOPY=llvm-objcopy
