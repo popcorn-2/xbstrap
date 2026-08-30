@@ -1,0 +1,12 @@
+diff --git a/src/tools/rust-analyzer/Cargo.toml b/src/tools/rust-analyzer/Cargo.toml
+index a08b2e412e4..781acf7d672 100644
+--- a/src/tools/rust-analyzer/Cargo.toml
++++ b/src/tools/rust-analyzer/Cargo.toml
+@@ -47,6 +47,7 @@ debug = 2
+ # salsa = { path = "../salsa" }
+ # salsa-macros = { path = "../salsa/components/salsa-macros" }
+ # salsa-macro-rules = { path = "../salsa/components/salsa-macro-rules" }
++camino = { git = "https://github.com/popcorn-2/camino.git" }
+ 
+ [workspace.dependencies]
+ # local crates
