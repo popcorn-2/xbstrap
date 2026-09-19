@@ -34,7 +34,7 @@ packages:
       -C linker={BINDEP:@dev/llvm}/bin/clang 
     install:
       - mkdir -p {SYSROOT}/kernel
-      - install {TARGET}/release/kernel.exec {SYSROOT}/kernel/kernel-0.1.0.exec
+      - install {TARGET}/release/kernel.elf {SYSROOT}/kernel/kernel-0.1.0.elf
 
   - name: "@core/bootloader"
     source: "@core/kernel"
