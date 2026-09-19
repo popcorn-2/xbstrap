@@ -554,19 +554,6 @@ class Builder:
                     cmd.append("--recurse-submodules")
                 cmd += [git, str(pkg.source_dir)]
                 subprocess.run(cmd, check=True)
-                if pkg.name == "@dev/rustc":
-                    cwd = Path.cwd()
-                    rustc_tools = pkg.source_dir / "src/tools"
-                    cargo_patch = ["git", "apply", str(Path.cwd() / "../xbstrap/cargo-patch.patch")]
-                    rust_analyzer_patch = ["git", "apply", str(Path.cwd() / "../xbstrap/rust-analyzer.patch")]
-                    print("  -> Checking out last working commit")
-                    subprocess.call("git checkout 0c5f080e7ac".split(), cwd=rustc_tools)
-                    print("  -> Patching cargo")
-                    subprocess.call("git submodule init cargo".split(), cwd=rustc_tools)
-                    subprocess.call("git submodule update cargo".split(), cwd=rustc_tools)
-                    subprocess.call(cargo_patch, cwd=rustc_tools / "cargo")
-                    print("  -> Patching rust-analyzer")
-                    subprocess.call(rust_analyzer_patch, cwd=rustc_tools / "rust-analyzer")
             else:
                 print(f"  -> Source ready: {pkg.git}")
         elif pkg.source:
