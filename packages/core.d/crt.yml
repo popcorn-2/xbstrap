@@ -2,10 +2,24 @@ packages:
   - name: "@core/crt"
     git: 'https://github.com/popcorn-2/crt.git'
     system: true
-    build: nasm {SOURCES}/x86_64/crt1.S -felf64 -o crt1.o
+    build:
+      - nasm {SOURCES}/x86_64/crt1.S -felf64 -o crt1.o
     install:
       - mkdir -p {SYSROOT}/lib
       - install crt1.o {SYSROOT}/lib/crt1.o
+
+  - name: "@core/librt-elf"
+    git: 'https://github.com/popcorn-2/crt.git'
+    system: true
+    build-depends:
+      - "@dev/rustc"
+    depends:
+      - "@core/crt"
+    build:
+      - "{BINDEP:@dev/rustc}/bin/rustc {SOURCES}/x86_64/elf/rt_elf.rs --edition 2024 --target {TARGET} -C panic=abort -C opt-level=3 -o librt_elf.a"
+    install:
+      - mkdir -p {SYSROOT}/lib
+      - llvm-objcopy --keep-global-symbol=__rt_elf_startup librt_elf.a {SYSROOT}/lib/librt_elf.a
 
   - name: "@core/libc"
     git: 'https://github.com/popcorn-2/mlibc.git'
