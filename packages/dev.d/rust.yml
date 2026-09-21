@@ -3,7 +3,7 @@ packages:
     git: 'https://github.com/popcorn-2/rust.git'
     binary-url: 'https://github.com/popcorn-2/rust/releases/download/latest/{SAFE_NAME}{FEATURES}-{TARGET}.tar.gz'
     build-depends:
-      - "@dev/llvm:clang,lld"
+      - "@dev/llvm:lld"
     features:
       - cargo
       - rustdoc
