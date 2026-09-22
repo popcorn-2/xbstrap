@@ -13,13 +13,17 @@ packages:
     system: true
     build-depends:
       - "@dev/rustc"
+      - "@dev/llvm:lld"
     depends:
       - "@core/crt"
     build:
-      - "{BINDEP:@dev/rustc}/bin/rustc {SOURCES}/x86_64/elf/rt_elf.rs --edition 2024 --target {TARGET} -C panic=abort -C opt-level=3 -o librt_elf.a"
+      - "{BINDEP:@dev/rustc}/bin/rustc {SOURCES}/x86_64/elf/rt_elf.rs --edition 2024 --target {TARGET} -C lto=true -C panic=abort -C opt-level=3 -o librt_elf_unstripped.a"
+      - "{BINDEP:@dev/llvm}/bin/ld.lld -r librt_elf_unstripped.a -u __rt_startup -o librt_elf_unstripped.o"
+      - "llvm-objcopy --keep-global-symbol=__rt_startup librt_elf_unstripped.o librt_elf.o"
+      - "{BINDEP:@dev/llvm}/bin/llvm-ar rcs librt_elf.a librt_elf.o"
     install:
       - mkdir -p {SYSROOT}/lib
-      - llvm-objcopy --keep-global-symbol=__rt_elf_startup librt_elf.a {SYSROOT}/lib/librt_elf.a
+      - install librt_elf.a {SYSROOT}/lib/librt_elf.a
 
   - name: "@core/libc"
     git: 'https://github.com/popcorn-2/mlibc.git'
